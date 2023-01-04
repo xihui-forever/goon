@@ -14,22 +14,23 @@ type Ctx struct {
 
 type Handler struct {
 	mapper map[string]interface{}
+	lock   sync.RWMutex
 }
 
 func NewHandler() *Handler {
-	p := &Handler{}
+	p := &Handler{
+		mapper: map[string]interface{}{},
+	}
 
 	return p
 }
 
-var lock sync.RWMutex
-
 func (p *Handler) MapPathToFunc(path string, s interface{}) {
-	lock.Lock()
+	p.lock.Lock()
 	if _, ok := p.mapper[path]; !ok {
 		p.mapper[path] = s
 	}
-	lock.Unlock()
+	p.lock.Unlock()
 }
 
 func (p *Handler) Register(path string, logic interface{}) {
@@ -40,23 +41,18 @@ func (p *Handler) Register(path string, logic interface{}) {
 	if s.Kind() != reflect.Func {
 		panic("parameter is not func")
 	}
+
 	if s.NumIn() != 2 {
 		panic("num of func in is not 2")
 	}
-	for i := 0; i < s.NumIn(); i++ {
-		if s.In(i) == nil {
-			panic("null pointer exception")
-		}
-	}
+
 	x := s.In(0).Elem()
 	for x.Kind() == reflect.Ptr {
 		x = x.Elem()
 	}
-
 	if x.Kind() != reflect.Struct {
 		panic("first in is must *Ctx")
 	}
-
 	if x.Name() != "Ctx" {
 		panic("first in is must *Ctx")
 	}
@@ -66,18 +62,21 @@ func (p *Handler) Register(path string, logic interface{}) {
 		x = x.Elem()
 	}
 	if x.Kind() != reflect.Struct {
-		panic("second in is must *GetUserReq")
+		panic("second in is must struct")
 	}
 
-	x = s.Out(1).Elem()
+	if s.NumOut() != 2 {
+		panic("num of func in is not 2")
+	}
+	x = s.Out(0).Elem()
 	for x.Kind() == reflect.Ptr {
 		x = x.Elem()
 	}
 	if x.Kind() != reflect.Struct {
-		panic("outFirst in is must *GetUserReq")
+		panic("outFirst in is must struct")
 	}
 
-	x = s.Out(2)
+	x = s.Out(1)
 	if x.Name() != "error" {
 		panic("outSecond in is must error")
 	}
@@ -104,7 +103,6 @@ type (
 
 func main() {
 	mux := NewHandler()
-	mux.mapper = make(map[string]interface{})
 	mux.Register("/GetUser", func(ctx *Ctx, req *GetUserReq) (*GetUserRsp, error) {
 
 		return nil, errors.New("not handle")
