@@ -118,8 +118,8 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 		log.Errorf("err:%v", err)
 		return err
 	}
-	n, err := writer.Write(resp)
-	if n < len(resp) || err != nil {
+	_, err = writer.Write(resp)
+	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
