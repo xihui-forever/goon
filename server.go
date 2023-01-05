@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"github.com/darabuchi/log"
+	"io"
 	"net/http"
 	"reflect"
 	"sync"
@@ -82,7 +85,42 @@ func (p *Handler) Register(path string, logic interface{}) {
 	}
 
 	p.MapPathToFunc(path, s)
+}
 
+func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
+	// 根据request的path，找到对应的logic，并且调用
+	logic, ok := p.mapper[request.URL.Path]
+	if !ok {
+		return errors.New("Path is unregistered")
+	}
+	s := reflect.TypeOf(logic)
+	in1 := s.In(0).Elem()
+	in2 := s.In(1).Elem()
+	log.Info(in2)
+
+	buf, err := io.ReadAll(request.Body)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	err = json.Unmarshal(buf, in2)
+	log.Info(in2)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	call := reflect.New(s).Call([]reflect.Value{reflect.ValueOf(in1), reflect.ValueOf(in2)})
+	log.Info(call)
+	resp, err := json.Marshal(call[0].Interface())
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+	writer.Write(resp)
+
+	return nil
 }
 
 type (
