@@ -164,5 +164,5 @@ func main() {
 		return nil, errors.New("not handle")
 	})
 	
-	http.ListenAndServe(":8080", mux)
+	_ = http.ListenAndServe(":8080", mux)
 }
