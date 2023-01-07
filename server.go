@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/darabuchi/log"
 	"io"
 	"net/http"
@@ -13,6 +14,12 @@ import (
 type Ctx struct {
 	writer  http.ResponseWriter
 	request *http.Request
+}
+
+type Item struct {
+	Logic    reflect.Value
+	ReqType  reflect.Type
+	RespType reflect.Type
 }
 
 type Handler struct {
@@ -28,78 +35,81 @@ func NewHandler() *Handler {
 	return p
 }
 
-func NewAnalyze(logic interface{}) Analysis {
-	s := reflect.TypeOf(logic)
-	if s.Kind() != reflect.Func {
+func (p *Handler) Register(path string, logic interface{}) {
+	// 校验logic是否是一个函数，并且函数的入参和出参是否规范
+	// 同时记录path对应的logic
+
+	item := &Item{
+		Logic: reflect.ValueOf(logic),
+	}
+
+	logicType := reflect.TypeOf(logic)
+	if logicType.Kind() != reflect.Func {
 		panic("parameter is not func")
 	}
-	var analysis Analysis
-	analysis.fun = logic
 
-	if s.NumIn() != 2 {
+	if logicType.NumIn() != 2 {
 		panic("num of func in is not 2")
 	}
-	x := s.In(0)
+
+	// 第一个参数必须是*Ctx
+	x := logicType.In(0)
 	for x.Kind() == reflect.Ptr {
 		x = x.Elem()
 	}
+
 	if x.Kind() != reflect.Struct {
 		panic("first in is must *Ctx")
 	}
 	if x.Name() != "Ctx" {
 		panic("first in is must *Ctx")
 	}
-	analysis.in = append(analysis.in, x)
 
-	x = s.In(1)
-	for x.Kind() == reflect.Ptr {
-		x = x.Elem()
+	// 第二个参数必须是结构体
+	{
+		item.ReqType = logicType.In(1)
+		for x.Kind() == reflect.Ptr {
+			x = x.Elem()
+		}
+		if x.Kind() != reflect.Struct {
+			panic("second in is must struct")
+		}
 	}
-	if x.Kind() != reflect.Struct {
-		panic("second in is must struct")
-	}
-	analysis.in = append(analysis.in, x)
 
-	if s.NumOut() != 2 {
+	if logicType.NumOut() != 2 {
 		panic("num of func in is not 2")
 	}
-	x = s.Out(0)
-	for x.Kind() == reflect.Ptr {
-		x = x.Elem()
-	}
-	if x.Kind() != reflect.Struct {
-		panic("outFirst in is must struct")
-	}
-	analysis.out = append(analysis.out, x)
 
-	x = s.Out(1)
+	// 第一个参数必须是结构体
+	{
+		item.RespType = logicType.Out(0)
+		for x.Kind() == reflect.Ptr {
+			x = x.Elem()
+		}
+		if x.Kind() != reflect.Struct {
+			panic("outFirst in is must struct")
+		}
+
+	}
+
+	// 第二个参数必须是error
+	x = logicType.Out(1)
 	if x.Name() != "error" {
 		panic("outSecond in is must error")
 	}
-	analysis.out = append(analysis.out, x)
 
-	return analysis
-
-}
-
-func (p *Handler) Register(path string, logic interface{}) {
-	// 校验logic是否是一个函数，并且函数的入参和出参是否规范
-	// 同时记录path对应的logic
-	analysis := NewAnalyze(logic)
-	p.trie.Insert(path, &analysis)
+	err := p.trie.Insert(path, item)
+	if err != nil {
+		panic(fmt.Errorf("insert err:%v", err))
+	}
 }
 
 func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
 	// 根据request的path，找到对应的logic，并且调用
-	node, err := p.trie.Find(request.URL.Path)
+	item, err := p.trie.Find(request.URL.Path)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
-	}
-
-	var logic *Analysis
-	for _, v := range node.childrenLogic {
-		logic = v.logic
 	}
 
 	buf, err := io.ReadAll(request.Body)
@@ -108,29 +118,33 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 		return err
 	}
 
-	arg2 := reflect.New(logic.in[1])
-
-	err = json.Unmarshal(buf, arg2.Interface())
-
+	req := reflect.New(item.ReqType)
+	err = json.Unmarshal(buf, req.Interface())
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
 
-	v := reflect.ValueOf(logic.fun)
-	arg1 := &Ctx{
-		writer:  writer,
-		request: request,
+	res := item.Logic.Call([]reflect.Value{
+		reflect.ValueOf(&Ctx{
+			writer:  writer,
+			request: request,
+		}),
+		req,
+	})
+	if res[1].Interface() != nil {
+		return res[1].Interface().(error)
 	}
-	call := v.Call([]reflect.Value{reflect.ValueOf(arg1), arg2})
 
-	resp, err1 := json.Marshal(call[0].Interface())
-	if err1 != nil {
-		log.Errorf("err:%v", err)
-		return err
-	}
-	if call[1].Interface() != nil {
-		return call[1].Interface().(error)
+	var resp []byte
+	if res[0].IsValid() {
+		resp, err = json.Marshal(res[0].Interface())
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return err
+		}
+	} else {
+		resp = []byte("{}")
 	}
 
 	_, err = writer.Write(resp)
@@ -146,16 +160,20 @@ func (p *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	err := p.Call(writer, request)
 	if err != nil {
 		log.Errorf("err:%v", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		_, e := writer.Write([]byte(err.Error()))
+		if e != nil {
+			log.Errorf("err:%v", e)
+		}
 	}
 }
 
-func NewTrieNode(char string, analysis *Analysis) *trieNode {
+func NewTrieNode(char string, item *Item) *trieNode {
 	return &trieNode{
-		char:          char,
-		logic:         analysis,
-		isEnding:      false,
-		children:      make(map[rune]*trieNode),
-		childrenLogic: make(map[*Analysis]*trieNode),
+		char:     char,
+		logic:    item,
+		isEnding: false,
+		children: make(map[rune]*trieNode),
 	}
 }
 
@@ -164,7 +182,7 @@ func (p *Handler) NewTrie() *Trie {
 	return &Trie{trieNode}
 }
 
-func (t *Trie) Insert(word string, analysis *Analysis) error {
+func (t *Trie) Insert(word string, item *Item) error {
 	node := t.root
 	for _, code := range word {
 		value, ok := node.children[code]
@@ -174,30 +192,26 @@ func (t *Trie) Insert(word string, analysis *Analysis) error {
 		}
 		node = value
 	}
-	value, ok := node.childrenLogic[analysis]
-	if !ok {
-		if !ok && len(node.childrenLogic) == 0 {
-			value = NewTrieNode("", analysis)
-			node.childrenLogic[analysis] = value
-		} else {
-			errors.New("logic is wrong")
-		}
+
+	if node.logic != nil {
+		return errors.New("logic already exist")
 	}
-	node = value
+
+	node.logic = item
 	node.isEnding = true
 	return nil
 }
 
-func (t *Trie) Find(word string) (*trieNode, error) {
+func (t *Trie) Find(word string) (*Item, error) {
 	node := t.root
 	for _, code := range word {
 		value, ok := node.children[code]
 		if !ok {
-			return nil, errors.New("Path is not unRegistered")
+			return nil, errors.New("path is not unRegistered")
 		}
 		node = value
 	}
-	return node, nil
+	return node.logic, nil
 }
 
 type Analysis struct {
@@ -234,12 +248,12 @@ type (
 
 type (
 	trieNode struct {
-		char          string
-		logic         *Analysis
-		isEnding      bool
-		children      map[rune]*trieNode
-		childrenLogic map[*Analysis]*trieNode
+		char     string
+		logic    *Item
+		isEnding bool
+		children map[rune]*trieNode
 	}
+
 	Trie struct {
 		root *trieNode
 	}
