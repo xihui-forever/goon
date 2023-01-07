@@ -17,30 +17,14 @@ type Ctx struct {
 }
 
 type Item struct {
-	Logic    reflect.Value
-	ReqType  reflect.Type
-	RespType reflect.Type
+	logic    reflect.Value
+	reqType  reflect.Type
+	respType reflect.Type
 }
 
-type Handler struct {
-	trie *Trie
-	lock sync.RWMutex
-}
-
-func NewHandler() *Handler {
-	p := &Handler{
-		trie: new(Trie),
-	}
-
-	return p
-}
-
-func (p *Handler) Register(path string, logic interface{}) {
-	// 校验logic是否是一个函数，并且函数的入参和出参是否规范
-	// 同时记录path对应的logic
-
+func NewItem(logic any) *Item {
 	item := &Item{
-		Logic: reflect.ValueOf(logic),
+		logic: reflect.ValueOf(logic),
 	}
 
 	logicType := reflect.TypeOf(logic)
@@ -67,7 +51,7 @@ func (p *Handler) Register(path string, logic interface{}) {
 
 	// 第二个参数必须是结构体
 	{
-		item.ReqType = logicType.In(1)
+		item.reqType = logicType.In(1)
 		for x.Kind() == reflect.Ptr {
 			x = x.Elem()
 		}
@@ -82,7 +66,7 @@ func (p *Handler) Register(path string, logic interface{}) {
 
 	// 第一个参数必须是结构体
 	{
-		item.RespType = logicType.Out(0)
+		item.respType = logicType.Out(0)
 		for x.Kind() == reflect.Ptr {
 			x = x.Elem()
 		}
@@ -98,34 +82,24 @@ func (p *Handler) Register(path string, logic interface{}) {
 		panic("outSecond in is must error")
 	}
 
-	err := p.trie.Insert(path, item)
-	if err != nil {
-		panic(fmt.Errorf("insert err:%v", err))
-	}
+	return item
 }
 
-func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
-	// 根据request的path，找到对应的logic，并且调用
-	item, err := p.trie.Find(request.URL.Path)
-	if err != nil {
-		log.Errorf("err:%v", err)
-		return err
-	}
-
+func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
 	buf, err := io.ReadAll(request.Body)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
 
-	req := reflect.New(item.ReqType)
+	req := reflect.New(p.reqType)
 	err = json.Unmarshal(buf, req.Interface())
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
 
-	res := item.Logic.Call([]reflect.Value{
+	res := p.logic.Call([]reflect.Value{
 		reflect.ValueOf(&Ctx{
 			writer:  writer,
 			request: request,
@@ -148,6 +122,46 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 	}
 
 	_, err = writer.Write(resp)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	return nil
+}
+
+type Handler struct {
+	trie *Trie
+	lock sync.RWMutex
+}
+
+func NewHandler() *Handler {
+	p := &Handler{
+		trie: new(Trie),
+	}
+
+	return p
+}
+
+func (p *Handler) Register(path string, logic interface{}) {
+	// 校验logic是否是一个函数，并且函数的入参和出参是否规范
+	// 同时记录path对应的logic
+
+	err := p.trie.Insert(path, NewItem(logic))
+	if err != nil {
+		panic(fmt.Errorf("insert err:%v", err))
+	}
+}
+
+func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
+	// 根据request的path，找到对应的logic，并且调用
+	item, err := p.trie.Find(request.URL.Path)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	err = item.Call(writer, request)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
@@ -261,9 +275,19 @@ type (
 
 func main() {
 	mux := NewHandler()
-	mux.Register("/GetUser", func(ctx *Ctx, req *GetUserReq) (*GetUserRsp, error) {
 
-		return &GetUserRsp{}, nil
+	mux.Register("/Check", func(ctx *Ctx) error {
+		return nil
+	})
+
+	mux.Register("/GetMe", func(ctx *Ctx) (**GetUserRsp, error) {
+
+		return nil, errors.New("not handle")
+	})
+
+	mux.Register("/SetMe", func(ctx *Ctx, req *SetUserReq) error {
+
+		return nil
 	})
 
 	mux.Register("/SetUser", func(ctx *Ctx, req *SetUserReq) (*SetUserRsp, error) {
