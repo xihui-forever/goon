@@ -32,8 +32,8 @@ func NewItem(logic any) *Item {
 		panic("parameter is not func")
 	}
 
-	if logicType.NumIn() != 2 {
-		panic("num of func in is not 2")
+	if logicType.NumIn() == 0 && logicType.NumOut() == 0 {
+		panic("num of func in is not normal ")
 	}
 
 	// 第一个参数必须是*Ctx
@@ -50,36 +50,56 @@ func NewItem(logic any) *Item {
 	}
 
 	// 第二个参数必须是结构体
-	{
-		item.reqType = logicType.In(1)
+	if logicType.NumIn() == 2 {
+		x = logicType.In(1)
 		for x.Kind() == reflect.Ptr {
 			x = x.Elem()
 		}
 		if x.Kind() != reflect.Struct {
 			panic("second in is must struct")
 		}
+		item.reqType = logicType.In(1)
+		if logicType.NumOut() == 2 {
+			x = logicType.Out(0).Elem()
+			if x.Kind() == reflect.Ptr {
+				x = x.Elem()
+			}
+			if x.Kind() != reflect.Struct {
+				panic("outFirst in is must struct")
+			}
+			item.respType = logicType.Out(0)
+
+			x = logicType.Out(1)
+			if x.Name() != "error" {
+				panic("outSecond in is must error")
+			}
+		}
 	}
 
-	if logicType.NumOut() != 2 {
-		panic("num of func in is not 2")
-	}
-
-	// 第一个参数必须是结构体
-	{
-		item.respType = logicType.Out(0)
-		for x.Kind() == reflect.Ptr {
+	if logicType.NumOut() == 2 {
+		x = logicType.Out(0)
+		if x.Kind() == reflect.Ptr {
+			x = x.Elem()
+		}
+		if x.Kind() == reflect.Ptr {
 			x = x.Elem()
 		}
 		if x.Kind() != reflect.Struct {
 			panic("outFirst in is must struct")
 		}
+		item.respType = logicType.Out(0)
+
+		x = logicType.Out(1)
+		if x.Name() != "error" {
+			panic("outSecond in is must error")
+		}
+		return item
 
 	}
 
-	// 第二个参数必须是error
-	x = logicType.Out(1)
+	x = logicType.Out(0)
 	if x.Name() != "error" {
-		panic("outSecond in is must error")
+		panic("out in is must error")
 	}
 
 	return item
@@ -92,20 +112,36 @@ func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
 		return err
 	}
 
-	req := reflect.New(p.reqType)
-	err = json.Unmarshal(buf, req.Interface())
-	if err != nil {
-		log.Errorf("err:%v", err)
-		return err
-	}
+	var res []reflect.Value
+	if p.reqType == nil {
+		res = p.logic.Call([]reflect.Value{
+			reflect.ValueOf(&Ctx{
+				writer:  writer,
+				request: request,
+			}),
+		})
+	} else {
+		req := reflect.New(p.reqType)
+		err = json.Unmarshal(buf, req.Interface())
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return err
+		}
 
-	res := p.logic.Call([]reflect.Value{
-		reflect.ValueOf(&Ctx{
-			writer:  writer,
-			request: request,
-		}),
-		req,
-	})
+		res = p.logic.Call([]reflect.Value{
+			reflect.ValueOf(&Ctx{
+				writer:  writer,
+				request: request,
+			}),
+			req,
+		})
+	}
+	if len(res) == 1 {
+		if res[0].Interface() != nil {
+			return res[1].Interface().(error)
+		}
+		return nil
+	}
 	if res[1].Interface() != nil {
 		return res[1].Interface().(error)
 	}
