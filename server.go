@@ -209,27 +209,18 @@ func (p *Handler) Head(path string, logic any) {
 
 func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
 	// 根据request的path，找到对应的logic，并且调用
-	methodSet, item, err := p.trie.Find(request.URL.Path)
+	item, err := p.trie.Find(request.Method, request.URL.Path)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
 
-	log.Info(methodSet)
-	for index, value := range methodSet {
-		log.Info(index, string(value))
-		if string(value) == request.Method {
-			log.Info(string(value))
-			err = item.Call(writer, request)
-			if err != nil {
-				log.Errorf("err:%v", err)
-				return err
-			}
-			return nil
-		}
+	err = item.Call(writer, request)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
 	}
-	log.Errorf("err:%v", errors.New("method is illegal"))
-	return err
+	return nil
 }
 
 func (p *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -248,7 +239,7 @@ func NewTrieNode(char string, item *Item) *trieNode {
 	return &trieNode{
 		char:      char,
 		logic:     item,
-		methodSet: make([]Method, 3),
+		methodSet: []Method{},
 		isEnding:  false,
 		children:  make(map[rune]*trieNode),
 	}
@@ -291,16 +282,23 @@ func (t *Trie) Insert(method Method, word string, item *Item) error {
 	return nil
 }
 
-func (t *Trie) Find(word string) ([]Method, *Item, error) {
+func (t *Trie) Find(method string, word string) (*Item, error) {
 	node := t.root
 	for _, code := range word {
 		value, ok := node.children[code]
 		if !ok {
-			return nil, nil, errors.New("path is not unRegistered")
+			return nil, errors.New("path is not unRegistered")
 		}
 		node = value
 	}
-	return node.methodSet, node.logic, nil
+	for _, value := range node.methodSet {
+		if string(value) == method {
+			log.Info(string(value))
+			return node.logic, nil
+		}
+	}
+	log.Errorf("err:%v", errors.New("method is illegal"))
+	return nil, errors.New("method is illegal")
 }
 
 type (
