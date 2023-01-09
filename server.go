@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/darabuchi/log"
 	"io"
 	"net/http"
 	"reflect"
 	"sync"
+	
+	"github.com/darabuchi/log"
 )
 
 type Ctx struct {
@@ -26,47 +27,47 @@ func NewItem(logic any) *Item {
 	item := &Item{
 		logic: reflect.ValueOf(logic),
 	}
-
+	
 	isStruct := func(x reflect.Type) bool {
 		for x.Kind() == reflect.Ptr {
 			x = x.Elem()
 		}
-
+		
 		return x.Kind() == reflect.Struct
 	}
-
+	
 	isError := func(x reflect.Type) bool {
 		for x.Kind() == reflect.Ptr {
 			x = x.Elem()
 		}
-
+		
 		return x.Name() != "error"
 	}
-
+	
 	logicType := reflect.TypeOf(logic)
 	if logicType.Kind() != reflect.Func {
 		panic("parameter is not func")
 	}
-
+	
 	// 不存在第一个入参
 	if logicType.NumIn() == 0 {
 		panic("num of func in can not be empty")
 	}
-
+	
 	// 存在第一个入参
 	// 第一个参数必须是*Ctx
 	x := logicType.In(0)
 	for x.Kind() == reflect.Ptr {
 		x = x.Elem()
 	}
-
+	
 	if x.Kind() != reflect.Struct {
 		panic("first in is must *Ctx")
 	}
 	if x.Name() != "Ctx" {
 		panic("first in is must *Ctx")
 	}
-
+	
 	// 存在第二个入参
 	// 第二个参数必须是结构体
 	if logicType.NumIn() > 1 {
@@ -75,7 +76,7 @@ func NewItem(logic any) *Item {
 			panic("2rd in is must struct")
 		}
 	}
-
+	
 	switch logicType.NumOut() {
 	case 1:
 		// 只有一个出参数
@@ -88,7 +89,7 @@ func NewItem(logic any) *Item {
 		if !isStruct(item.respType) {
 			panic("1st out must struct")
 		}
-
+		
 		if !isError(logicType.Out(1)) {
 			panic("2rd out must error")
 		}
@@ -97,7 +98,7 @@ func NewItem(logic any) *Item {
 	default:
 		panic("num of func out must 1 or 2")
 	}
-
+	
 	return item
 }
 
@@ -109,7 +110,7 @@ func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
 			request: request,
 		}),
 	}
-
+	
 	// 如果存在第二个入参
 	if p.reqType != nil {
 		buf, err := io.ReadAll(request.Body)
@@ -117,20 +118,20 @@ func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
 			log.Errorf("err:%v", err)
 			return err
 		}
-
+		
 		req := reflect.New(p.reqType)
 		err = json.Unmarshal(buf, req.Interface())
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return err
 		}
-
+		
 		in = append(in, req)
 	}
-
+	
 	// 调用处理方法
 	out := p.logic.Call(in)
-
+	
 	// 只有一个返回值的
 	if p.respType == nil {
 		if out[0].Interface() != nil {
@@ -138,12 +139,12 @@ func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
 		}
 		return nil
 	}
-
+	
 	// 有两个返回值的
 	if out[1].Interface() != nil {
 		return out[1].Interface().(error)
 	}
-
+	
 	var resp []byte
 	var err error
 	if out[0].IsValid() {
@@ -155,13 +156,13 @@ func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
 	} else {
 		resp = []byte("{}")
 	}
-
+	
 	_, err = writer.Write(resp)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
-
+	
 	return nil
 }
 
@@ -174,18 +175,30 @@ func NewHandler() *Handler {
 	p := &Handler{
 		trie: new(Trie),
 	}
-
+	
 	return p
 }
 
-func (p *Handler) Register(path string, logic interface{}) {
+func (p *Handler) Register(method Method, path string, logic interface{}) {
 	// 校验logic是否是一个函数，并且函数的入参和出参是否规范
 	// 同时记录path对应的logic
-
+	
 	err := p.trie.Insert(path, NewItem(logic))
 	if err != nil {
 		panic(fmt.Errorf("insert err:%v", err))
 	}
+}
+
+func (p *Handler) Get(path string, logic any) {
+	p.Register(Get, path, logic)
+}
+
+func (p *Handler) Post(path string, logic any) {
+	p.Register(Post, path, logic)
+}
+
+func (p *Handler) Head(path string, logic any) {
+	p.Register(Head, path, logic)
 }
 
 func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
@@ -195,13 +208,13 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 		log.Errorf("err:%v", err)
 		return err
 	}
-
+	
 	err = item.Call(writer, request)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
-
+	
 	return nil
 }
 
@@ -241,11 +254,11 @@ func (t *Trie) Insert(word string, item *Item) error {
 		}
 		node = value
 	}
-
+	
 	if node.logic != nil {
 		return errors.New("logic already exist")
 	}
-
+	
 	node.logic = item
 	node.isEnding = true
 	return nil
@@ -276,7 +289,7 @@ type (
 		A string `json:"a"`
 		B string `json:"b"`
 	}
-
+	
 	GetUserRsp struct {
 		A string `json:"a"`
 		B string `json:"b"`
@@ -288,7 +301,7 @@ type (
 		C string `json:"c"`
 		D string `json:"d"`
 	}
-
+	
 	SetUserRsp struct {
 		C string `json:"c"`
 		D string `json:"d"`
@@ -302,7 +315,7 @@ type (
 		isEnding bool
 		children map[rune]*trieNode
 	}
-
+	
 	Trie struct {
 		root *trieNode
 	}
@@ -310,25 +323,25 @@ type (
 
 func main() {
 	mux := NewHandler()
-
-	mux.Register("/Check", func(ctx *Ctx) error {
+	
+	mux.Head("/Check", func(ctx *Ctx) error {
 		return nil
 	})
-
-	mux.Register("/GetMe", func(ctx *Ctx) (**GetUserRsp, error) {
-
+	
+	mux.Get("/GetMe", func(ctx *Ctx) (**GetUserRsp, error) {
+		
 		return nil, errors.New("not handle")
 	})
-
-	mux.Register("/SetMe", func(ctx *Ctx, req *SetUserReq) error {
-
+	
+	mux.Post("/SetMe", func(ctx *Ctx, req *SetUserReq) error {
+		
 		return nil
 	})
-
-	mux.Register("/SetUser", func(ctx *Ctx, req *SetUserReq) (*SetUserRsp, error) {
-
+	
+	mux.Post("/SetUser", func(ctx *Ctx, req *SetUserReq) (*SetUserRsp, error) {
+		
 		return nil, errors.New("not handle")
 	})
-
+	
 	_ = http.ListenAndServe(":8080", mux)
 }
