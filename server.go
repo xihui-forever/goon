@@ -27,15 +27,33 @@ func NewItem(logic any) *Item {
 		logic: reflect.ValueOf(logic),
 	}
 
+	isStruct := func(x reflect.Type) bool {
+		for x.Kind() == reflect.Ptr {
+			x = x.Elem()
+		}
+
+		return x.Kind() == reflect.Struct
+	}
+
+	isError := func(x reflect.Type) bool {
+		for x.Kind() == reflect.Ptr {
+			x = x.Elem()
+		}
+
+		return x.Name() != "error"
+	}
+
 	logicType := reflect.TypeOf(logic)
 	if logicType.Kind() != reflect.Func {
 		panic("parameter is not func")
 	}
 
-	if logicType.NumIn() == 0 && logicType.NumOut() == 0 {
-		panic("num of func in is not normal ")
+	// 不存在第一个入参
+	if logicType.NumIn() == 0 {
+		panic("num of func in can not be empty")
 	}
 
+	// 存在第一个入参
 	// 第一个参数必须是*Ctx
 	x := logicType.In(0)
 	for x.Kind() == reflect.Ptr {
@@ -49,78 +67,57 @@ func NewItem(logic any) *Item {
 		panic("first in is must *Ctx")
 	}
 
+	// 存在第二个入参
 	// 第二个参数必须是结构体
-	if logicType.NumIn() == 2 {
-		x = logicType.In(1)
-		for x.Kind() == reflect.Ptr {
-			x = x.Elem()
-		}
-		if x.Kind() != reflect.Struct {
-			panic("second in is must struct")
-		}
+	if logicType.NumIn() > 1 {
 		item.reqType = logicType.In(1)
-		if logicType.NumOut() == 2 {
-			x = logicType.Out(0).Elem()
-			if x.Kind() == reflect.Ptr {
-				x = x.Elem()
-			}
-			if x.Kind() != reflect.Struct {
-				panic("outFirst in is must struct")
-			}
-			item.respType = logicType.Out(0)
-
-			x = logicType.Out(1)
-			if x.Name() != "error" {
-				panic("outSecond in is must error")
-			}
+		if !isStruct(item.reqType) {
+			panic("2rd in is must struct")
 		}
 	}
 
-	if logicType.NumOut() == 2 {
-		x = logicType.Out(0)
-		if x.Kind() == reflect.Ptr {
-			x = x.Elem()
+	switch logicType.NumOut() {
+	case 1:
+		// 只有一个出参数
+		if !isError(logicType.Out(0)) {
+			panic("1st out must error")
 		}
-		if x.Kind() == reflect.Ptr {
-			x = x.Elem()
-		}
-		if x.Kind() != reflect.Struct {
-			panic("outFirst in is must struct")
-		}
+	case 2:
+		// 有两个返回
 		item.respType = logicType.Out(0)
-
-		x = logicType.Out(1)
-		if x.Name() != "error" {
-			panic("outSecond in is must error")
+		if !isStruct(item.respType) {
+			panic("1st out must struct")
 		}
-		return item
 
-	}
-
-	x = logicType.Out(0)
-	if x.Name() != "error" {
-		panic("out in is must error")
+		if !isError(logicType.Out(1)) {
+			panic("2rd out must error")
+		}
+	case 0:
+		fallthrough
+	default:
+		panic("num of func out must 1 or 2")
 	}
 
 	return item
 }
 
 func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
-	buf, err := io.ReadAll(request.Body)
-	if err != nil {
-		log.Errorf("err:%v", err)
-		return err
+	in := []reflect.Value{
+		// 第一个入参是固定的
+		reflect.ValueOf(&Ctx{
+			writer:  writer,
+			request: request,
+		}),
 	}
 
-	var res []reflect.Value
-	if p.reqType == nil {
-		res = p.logic.Call([]reflect.Value{
-			reflect.ValueOf(&Ctx{
-				writer:  writer,
-				request: request,
-			}),
-		})
-	} else {
+	// 如果存在第二个入参
+	if p.reqType != nil {
+		buf, err := io.ReadAll(request.Body)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return err
+		}
+
 		req := reflect.New(p.reqType)
 		err = json.Unmarshal(buf, req.Interface())
 		if err != nil {
@@ -128,27 +125,29 @@ func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
 			return err
 		}
 
-		res = p.logic.Call([]reflect.Value{
-			reflect.ValueOf(&Ctx{
-				writer:  writer,
-				request: request,
-			}),
-			req,
-		})
+		in = append(in, req)
 	}
-	if len(res) == 1 {
-		if res[0].Interface() != nil {
-			return res[1].Interface().(error)
+
+	// 调用处理方法
+	out := p.logic.Call(in)
+
+	// 只有一个返回值的
+	if p.respType == nil {
+		if out[0].Interface() != nil {
+			return out[0].Interface().(error)
 		}
 		return nil
 	}
-	if res[1].Interface() != nil {
-		return res[1].Interface().(error)
+
+	// 有两个返回值的
+	if out[1].Interface() != nil {
+		return out[1].Interface().(error)
 	}
 
 	var resp []byte
-	if res[0].IsValid() {
-		resp, err = json.Marshal(res[0].Interface())
+	var err error
+	if out[0].IsValid() {
+		resp, err = json.Marshal(out[0].Interface())
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return err
