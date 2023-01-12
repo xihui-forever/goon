@@ -7,8 +7,7 @@ import (
 type (
 	trieNode struct {
 		char     string
-		mapper   map[Method]*Item
-		useSet   map[Method][]*Item
+		itemSet  []*Item
 		isEnding bool
 		children map[rune]*trieNode
 	}
@@ -26,14 +25,13 @@ func NewTrie() *Trie {
 func NewTrieNode(char string, item *Item) *trieNode {
 	return &trieNode{
 		char:     char,
-		mapper:   make(map[Method]*Item),
-		useSet:   make(map[Method][]*Item),
+		itemSet:  []*Item{},
 		isEnding: false,
 		children: make(map[rune]*trieNode),
 	}
 }
 
-func (t *Trie) Insert(method Method, word string, item *Item) error {
+func (t *Trie) Insert(word string, item *Item) error {
 	node := t.root
 	for _, code := range word {
 		value, ok := node.children[code]
@@ -44,54 +42,58 @@ func (t *Trie) Insert(method Method, word string, item *Item) error {
 		node = value
 	}
 
-	if method != PreUse && method != PostUse {
-		if node.mapper[method] != nil {
+	for _, value := range node.itemSet {
+		if value.method == item.method {
 			panic("logic already exists")
-		} else {
-			node.mapper[method] = item
 		}
 	}
 
-	node.useSet[method] = append(node.useSet[method], item)
-
+	node.itemSet = append(node.itemSet, item)
 	node.isEnding = true
 	return nil
 }
 
-func (t *Trie) Find(method Method, word string) ([]*trieNode, error) {
+func (t *Trie) Find(method Method, word string) ([]*Item, error) {
 	node := t.root
 
-	var nodeList []*trieNode
-	//var itemList []*Item
+	var itemList []*Item
 	for _, code := range word {
 		value, ok := node.children[code]
 		if !ok {
 			return nil, errors.New("path is not unRegistered")
 		}
 		if value.char == "/" {
-			nodeList = append(nodeList, node)
+			for _, value := range node.itemSet {
+				if value.method == PreUse || value.method == PostUse {
+					itemList = append(itemList, value)
+				}
+			}
 		}
 		node = value
 	}
-
-	if node.mapper[method] == nil {
+	/*if node.itemSet == nil {
 		return nil, errors.New("logic is not unRegistered")
-	}
-	nodeList = append(nodeList, node)
-
-	/*for _, value := range nodeList {
-		if value.mapper[PreUse] != nil {
-			itemList = append(itemList, )
-		}
-	}
-
-	itemList = append(itemList, node.mapper[method])
-
-	for i := len(nodeList) - 1; i >= 0; i-- {
-		if nodeList[i].mapper[PostUse] != nil {
-			itemList = append(itemList, nodeList[i].mapper[PostUse])
-		}
 	}*/
 
-	return nodeList, nil
+	var key int
+	var item *Item
+	for index, value := range node.itemSet {
+		if value.method == method {
+			key = index
+			item = value
+			break
+		}
+		if index == len(node.itemSet)-1 {
+			return nil, errors.New("logic is not unRegistered")
+		}
+	}
+	for i := 0; i < key; i++ {
+		value := node.itemSet[i]
+		if value.method == PreUse || value.method == PostUse {
+			itemList = append(itemList, value)
+		}
+	}
+	itemList = append(itemList, item)
+
+	return itemList, nil
 }

@@ -12,9 +12,10 @@ type Item struct {
 	logic    reflect.Value
 	reqType  reflect.Type
 	respType reflect.Type
+	method   Method
 }
 
-func NewItem(logic any) *Item {
+func NewItem(method Method, logic any) *Item {
 	item := &Item{
 		logic: reflect.ValueOf(logic),
 	}

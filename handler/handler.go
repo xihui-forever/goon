@@ -18,57 +18,34 @@ func NewHandler() *Handler {
 	return p
 }
 
-/*func (p *Handler) IsValid(writer http.ResponseWriter, request *http.Request) error {
-	if strings.HasPrefix(request.URL.Path, "/User/") {
-		request.Method = ""
-		request.URL.Path = "/User"
-
-		err := p.Call(writer, request)
-		if err != nil {
-			log.Errorf("err:%v", err)
-			return err
-		}
-	}
-	return nil
-}*/
-
 func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
 	// 根据request的path，找到对应的logic，并且调用
 	method := Method(request.Method)
 
-	nodeList, err := p.trie.Find(method, request.URL.Path)
+	itemList, err := p.trie.Find(method, request.URL.Path)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
 
 	var key int
-	for index, value := range nodeList {
-		if value.useSet[PreUse] != nil {
-			for _, value := range value.useSet[PreUse] {
-				err = value.Call(writer, request)
-				if err != nil {
-					break
-				}
+	for index, value := range itemList {
+		if value.method == PreUse {
+			err = value.Call(writer, request)
+			if err != nil {
+				break
 			}
 		}
 		key = index
-		if err != nil {
-			break
-		}
 	}
-	if key == len(nodeList)-1 {
-		err = nodeList[key].mapper[method].Call(writer, request)
+	if key == len(itemList)-1 {
+		err = itemList[len(itemList)-1].Call(writer, request)
 	}
+
 	for i := key; i >= 0; i-- {
-		if nodeList[key].useSet[PostUse] != nil {
-			for _, value := range nodeList[key].useSet[PostUse] {
-				err = value.Call(writer, request)
-				if err != nil {
-					log.Errorf("err:%v", err)
-					return err
-				}
-			}
+		value := itemList[i]
+		if value.method == PostUse {
+			value.Call(writer, request)
 		}
 	}
 
@@ -76,7 +53,7 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 }
 
 func (p *Handler) Register(method Method, path string, logic interface{}) {
-	err := p.trie.Insert(method, path, NewItem(logic))
+	err := p.trie.Insert(path, NewItem(method, logic))
 	if err != nil {
 		panic(fmt.Errorf("insert err:%v", err))
 	}
