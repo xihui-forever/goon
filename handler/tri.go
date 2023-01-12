@@ -2,16 +2,15 @@ package handler
 
 import (
 	"errors"
-	"github.com/darabuchi/log"
 )
 
 type (
 	trieNode struct {
-		char      string
-		logic     *Item
-		methodSet []Method
-		isEnding  bool
-		children  map[rune]*trieNode
+		char     string
+		mapper   map[Method]*Item
+		useSet   map[Method][]*Item
+		isEnding bool
+		children map[rune]*trieNode
 	}
 
 	Trie struct {
@@ -26,37 +25,12 @@ func NewTrie() *Trie {
 
 func NewTrieNode(char string, item *Item) *trieNode {
 	return &trieNode{
-		char:      char,
-		logic:     item,
-		methodSet: []Method{},
-		isEnding:  false,
-		children:  make(map[rune]*trieNode),
+		char:     char,
+		mapper:   make(map[Method]*Item),
+		useSet:   make(map[Method][]*Item),
+		isEnding: false,
+		children: make(map[rune]*trieNode),
 	}
-}
-
-func (t *Trie) Find(method Method, word string) (*Item, error) {
-	node := t.root
-
-	for _, code := range word {
-		value, ok := node.children[code]
-		if !ok {
-			return nil, errors.New("path is not unRegistered")
-		}
-		node = value
-	}
-
-	if method == "" {
-		return node.logic, nil
-	}
-
-	for _, value := range node.methodSet {
-		if value == method {
-			log.Info(string(value))
-			return node.logic, nil
-		}
-	}
-	log.Errorf("method is illegal")
-	return nil, errors.New("method is illegal")
 }
 
 func (t *Trie) Insert(method Method, word string, item *Item) error {
@@ -70,22 +44,54 @@ func (t *Trie) Insert(method Method, word string, item *Item) error {
 		node = value
 	}
 
-	if node.logic != nil {
-		return errors.New("logic already exist")
-	}
-	if node.methodSet != nil {
-		for _, value := range node.methodSet {
-			if value == method {
-				return errors.New("method of this logic already exist")
-			}
+	if method != PreUse && method != PostUse {
+		if node.mapper[method] != nil {
+			panic("logic already exists")
+		} else {
+			node.mapper[method] = item
 		}
 	}
 
-	node.logic = item
-	if method != "" {
-		node.methodSet = append(node.methodSet, method)
-	}
-	log.Info(node.methodSet)
+	node.useSet[method] = append(node.useSet[method], item)
+
 	node.isEnding = true
 	return nil
+}
+
+func (t *Trie) Find(method Method, word string) ([]*trieNode, error) {
+	node := t.root
+
+	var nodeList []*trieNode
+	//var itemList []*Item
+	for _, code := range word {
+		value, ok := node.children[code]
+		if !ok {
+			return nil, errors.New("path is not unRegistered")
+		}
+		if value.char == "/" {
+			nodeList = append(nodeList, node)
+		}
+		node = value
+	}
+
+	if node.mapper[method] == nil {
+		return nil, errors.New("logic is not unRegistered")
+	}
+	nodeList = append(nodeList, node)
+
+	/*for _, value := range nodeList {
+		if value.mapper[PreUse] != nil {
+			itemList = append(itemList, )
+		}
+	}
+
+	itemList = append(itemList, node.mapper[method])
+
+	for i := len(nodeList) - 1; i >= 0; i-- {
+		if nodeList[i].mapper[PostUse] != nil {
+			itemList = append(itemList, nodeList[i].mapper[PostUse])
+		}
+	}*/
+
+	return nodeList, nil
 }

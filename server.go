@@ -33,13 +33,7 @@ type (
 func main() {
 	mux := handler.NewHandler()
 
-	/*mux.Use("/User", func(ctx *handler.Ctx) error {
-		//
-		return ctx.Next()
-	})*/
-
-	mux.Use("/User", func(ctx *handler.Ctx) error {
-		//
+	mux.PreUse("/User", func(ctx *handler.Ctx) error {
 		return nil
 	})
 	//group := group.use()
@@ -61,6 +55,11 @@ func main() {
 	mux.Post("/User/SetUser", func(ctx *handler.Ctx, req *SetUserReq) error {
 
 		return errors.New("not handle")
+	})
+
+	mux.PostUse("/User", func(ctx *handler.Ctx) error {
+		//
+		return nil
 	})
 
 	_ = http.ListenAndServe(":8080", mux)
