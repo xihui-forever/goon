@@ -30,16 +30,13 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 
 	var key int
 	for index, value := range itemList {
-		if value.method == PreUse {
+		if value.method != PostUse {
 			err = value.Call(writer, request)
 			if err != nil {
 				break
 			}
 		}
 		key = index
-	}
-	if key == len(itemList)-1 {
-		err = itemList[len(itemList)-1].Call(writer, request)
 	}
 
 	for i := key; i >= 0; i-- {

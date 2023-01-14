@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"strings"
 )
 
 type (
@@ -33,6 +34,7 @@ func NewTrieNode(char string, item *Item) *trieNode {
 
 func (t *Trie) Insert(word string, item *Item) error {
 	node := t.root
+	word = strings.TrimSuffix(word, "/") + "/"
 	for _, code := range word {
 		value, ok := node.children[code]
 		if !ok {
@@ -43,7 +45,7 @@ func (t *Trie) Insert(word string, item *Item) error {
 	}
 
 	for _, value := range node.itemSet {
-		if value.method == item.method {
+		if item.method != PreUse && item.method != PostUse && value.method == item.method {
 			panic("logic already exists")
 		}
 	}
@@ -55,45 +57,36 @@ func (t *Trie) Insert(word string, item *Item) error {
 
 func (t *Trie) Find(method Method, word string) ([]*Item, error) {
 	node := t.root
-
+	word = strings.TrimSuffix(word, "/") + "/"
 	var itemList []*Item
-	for _, code := range word {
+	for index, code := range word {
 		value, ok := node.children[code]
 		if !ok {
 			return nil, errors.New("path is not unRegistered")
 		}
 		if value.char == "/" {
-			for _, value := range node.itemSet {
-				if value.method == PreUse || value.method == PostUse {
+			for _, value := range value.itemSet {
+				switch value.method {
+				case PreUse, PostUse:
 					itemList = append(itemList, value)
+				case method:
+					if index == len(word)-1 {
+						itemList = append(itemList, value)
+						goto END
+					}
 				}
 			}
 		}
 		node = value
 	}
-	/*if node.itemSet == nil {
-		return nil, errors.New("logic is not unRegistered")
-	}*/
 
-	var key int
-	var item *Item
-	for index, value := range node.itemSet {
-		if value.method == method {
-			key = index
-			item = value
-			break
-		}
-		if index == len(node.itemSet)-1 {
-			return nil, errors.New("logic is not unRegistered")
-		}
+END:
+	if len(itemList) == 0 {
+		return nil, errors.New("path is not unRegistered")
 	}
-	for i := 0; i < key; i++ {
-		value := node.itemSet[i]
-		if value.method == PreUse || value.method == PostUse {
-			itemList = append(itemList, value)
-		}
+	if itemList[len(itemList)-1].method != method {
+		return nil, errors.New("method is not unRegistered")
 	}
-	itemList = append(itemList, item)
 
 	return itemList, nil
 }

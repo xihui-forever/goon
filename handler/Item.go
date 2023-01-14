@@ -63,7 +63,11 @@ func NewItem(method Method, logic any) *Item {
 	// 存在第二个入参
 	// 第二个参数必须是结构体
 	if logicType.NumIn() > 1 {
-		item.reqType = logicType.In(1)
+		x = logicType.In(1)
+		for x.Kind() == reflect.Ptr {
+			x = x.Elem()
+		}
+		item.reqType = x
 		if !isStruct(item.reqType) {
 			panic("2rd in is must struct")
 		}
