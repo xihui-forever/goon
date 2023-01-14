@@ -58,7 +58,7 @@ func main() {
 	})
 
 	mux.PostUse("/User", func(ctx *handler.Ctx) error {
-		//
+
 		return nil
 	})
 

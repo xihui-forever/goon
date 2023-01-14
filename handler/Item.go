@@ -17,7 +17,8 @@ type Item struct {
 
 func NewItem(method Method, logic any) *Item {
 	item := &Item{
-		logic: reflect.ValueOf(logic),
+		logic:  reflect.ValueOf(logic),
+		method: method,
 	}
 
 	isStruct := func(x reflect.Type) bool {

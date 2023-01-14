@@ -19,11 +19,11 @@ type (
 )
 
 func NewTrie() *Trie {
-	trieNode := NewTrieNode("/", nil)
+	trieNode := NewTrieNode("/")
 	return &Trie{trieNode}
 }
 
-func NewTrieNode(char string, item *Item) *trieNode {
+func NewTrieNode(char string) *trieNode {
 	return &trieNode{
 		char:     char,
 		itemSet:  []*Item{},
@@ -38,15 +38,17 @@ func (t *Trie) Insert(word string, item *Item) error {
 	for _, code := range word {
 		value, ok := node.children[code]
 		if !ok {
-			value = NewTrieNode(string(code), nil)
+			value = NewTrieNode(string(code))
 			node.children[code] = value
 		}
 		node = value
 	}
 
-	for _, value := range node.itemSet {
-		if item.method != PreUse && item.method != PostUse && value.method == item.method {
-			panic("logic already exists")
+	if item.method != PreUse && item.method != PostUse {
+		for _, value := range node.itemSet {
+			if value.method == item.method {
+				panic("logic already exists")
+			}
 		}
 	}
 
