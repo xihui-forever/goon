@@ -1,4 +1,4 @@
-module github.com/xihui-forever/goStudy
+module github.com/xihui-forever/goon
 
 go 1.19
 
