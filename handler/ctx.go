@@ -9,10 +9,10 @@ type Ctx struct {
 	request *http.Request
 }
 
-func (ctx *Ctx) GetSid() string {
-	if ctx == nil {
+func (p *Ctx) GetSid() string {
+	if p == nil {
 		return ""
 	}
 
-	return ctx.request.Header.Get("X-Session-Id")
+	return p.request.Header.Get("X-Session-Id")
 }
