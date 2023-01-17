@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"github.com/darabuchi/log"
+	"github.com/darabuchi/utils"
 	"net/http"
 )
 
@@ -28,10 +29,27 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 		return err
 	}
 
+	call := func(value *Item, writer http.ResponseWriter, request *http.Request) (err error) {
+		defer utils.CachePanicWithHandle(func(err interface{}) {
+			if e, ok := err.(error); ok {
+				err = e
+			} else {
+				err = fmt.Errorf("%v", err)
+			}
+		})
+
+		err = value.Call(writer, request)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 	var key int
 	for index, value := range itemList {
 		if value.method != PostUse {
-			err = value.Call(writer, request)
+			err = call(value, writer, request)
 			if err != nil {
 				break
 			}
@@ -42,7 +60,9 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 	for i := key; i >= 0; i-- {
 		value := itemList[i]
 		if value.method == PostUse {
-			value.Call(writer, request)
+			err = call(value, writer, request)
+			if err != nil {
+			}
 		}
 	}
 
