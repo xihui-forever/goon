@@ -513,3 +513,4 @@ drcRunDir/*
 abstract.log*
 abstract.record*
 secring.*
+config.yml
