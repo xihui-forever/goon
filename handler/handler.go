@@ -29,6 +29,11 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 		return err
 	}
 
+	ctx := &Ctx{
+		writer:  writer,
+		request: request,
+	}
+
 	call := func(value *Item, writer http.ResponseWriter, request *http.Request) (err error) {
 		defer utils.CachePanicWithHandle(func(err interface{}) {
 			if e, ok := err.(error); ok {
@@ -38,7 +43,7 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 			}
 		})
 
-		err = value.Call(writer, request)
+		err = value.Call(ctx, writer, request)
 		if err != nil {
 			return err
 		}

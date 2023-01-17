@@ -99,13 +99,10 @@ func NewItem(method Method, logic any) *Item {
 	return item
 }
 
-func (p *Item) Call(writer http.ResponseWriter, request *http.Request) error {
+func (p *Item) Call(ctx *Ctx, writer http.ResponseWriter, request *http.Request) error {
 	in := []reflect.Value{
 		// 第一个入参是固定的
-		reflect.ValueOf(&Ctx{
-			writer:  writer,
-			request: request,
-		}),
+		reflect.ValueOf(ctx),
 	}
 
 	// 如果存在第二个入参
