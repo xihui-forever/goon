@@ -9,10 +9,10 @@ type Ctx struct {
 	request *http.Request
 }
 
-func (ctx *Ctx) Next() error {
-	//是否需要拦截器
-	//拦截器调用
+func (p *Ctx) GetSid() string {
+	if p == nil {
+		return ""
+	}
 
-	//if strings.HasPrefix(, "/User")
-	return nil
+	return p.request.Header.Get("X-Session-Id")
 }

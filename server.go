@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"github.com/xihui-forever/goStudy/handler"
+	"github.com/xihui-forever/goon/handler"
 	"net/http"
 )
 
