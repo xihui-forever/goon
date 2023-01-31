@@ -2,8 +2,9 @@ package main
 
 import (
 	"errors"
+	"github.com/darabuchi/log"
+	"github.com/valyala/fasthttp"
 	"github.com/xihui-forever/goon/handler"
-	"net/http"
 )
 
 type (
@@ -62,5 +63,15 @@ func main() {
 		return nil
 	})
 
-	_ = http.ListenAndServe(":8080", mux)
+	_ = fasthttp.ListenAndServe(":8080", func(ctx *fasthttp.RequestCtx) {
+		err := mux.Call(&ctx.Response, &ctx.Request)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			ctx.Response.Header.SetStatusCode(fasthttp.StatusInternalServerError)
+			_, e := ctx.Write([]byte(err.Error()))
+			if e != nil {
+				log.Errorf("err:%v", e)
+			}
+		}
+	})
 }

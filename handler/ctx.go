@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"net/http"
+	"github.com/valyala/fasthttp"
 )
 
 type Ctx struct {
-	writer  http.ResponseWriter
-	request *http.Request
+	response *fasthttp.Response
+	request  *fasthttp.Request
 }
 
 func (p *Ctx) GetSid() string {
@@ -14,5 +14,10 @@ func (p *Ctx) GetSid() string {
 		return ""
 	}
 
-	return p.request.Header.Get("X-Session-Id")
+	return string(p.request.Header.Peek("X-Session-Id"))
+}
+
+func (p *Ctx) Write(res []byte) error {
+	p.response.AppendBody(res)
+	return nil
 }

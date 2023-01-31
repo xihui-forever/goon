@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/darabuchi/log"
 	"github.com/darabuchi/utils"
-	"net/http"
+	"github.com/valyala/fasthttp"
 )
 
 type Handler struct {
@@ -19,22 +19,21 @@ func NewHandler() *Handler {
 	return p
 }
 
-func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error {
+func (p *Handler) Call(response *fasthttp.Response, request *fasthttp.Request) error {
 	// 根据request的path，找到对应的logic，并且调用
-	method := Method(request.Method)
-
-	itemList, err := p.trie.Find(method, request.URL.Path)
+	method := Method(request.Header.Method())
+	itemList, err := p.trie.Find(method, request.URI().String())
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
 
-	ctx := &Ctx{
-		writer:  writer,
-		request: request,
+	context := &Ctx{
+		response: response,
+		request:  request,
 	}
 
-	call := func(value *Item, writer http.ResponseWriter, request *http.Request) (err error) {
+	call := func(value *Item, ctx *Ctx) (res []byte, err error) {
 		defer utils.CachePanicWithHandle(func(err interface{}) {
 			if e, ok := err.(error); ok {
 				err = e
@@ -43,18 +42,19 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 			}
 		})
 
-		err = value.Call(ctx, writer, request)
+		res, err = value.CallOne(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		return nil
+		return res, nil
 	}
 
 	var key int
+	var res []byte
 	for index, value := range itemList {
 		if value.method != PostUse {
-			err = call(value, writer, request)
+			res, err = call(value, context)
 			if err != nil {
 				break
 			}
@@ -65,13 +65,14 @@ func (p *Handler) Call(writer http.ResponseWriter, request *http.Request) error 
 	for i := key; i >= 0; i-- {
 		value := itemList[i]
 		if value.method == PostUse {
-			err = call(value, writer, request)
+			res, err = call(value, context)
 			if err != nil {
+				break
 			}
 		}
 	}
+	return context.Write(res)
 
-	return err
 }
 
 func (p *Handler) Register(method Method, path string, logic interface{}) {
@@ -99,16 +100,4 @@ func (p *Handler) PreUse(path string, logic any) {
 
 func (p *Handler) PostUse(path string, logic any) {
 	p.Register(PostUse, path, logic)
-}
-
-func (p *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	err := p.Call(writer, request)
-	if err != nil {
-		log.Errorf("err:%v", err)
-		writer.WriteHeader(http.StatusInternalServerError)
-		_, e := writer.Write([]byte(err.Error()))
-		if e != nil {
-			log.Errorf("err:%v", e)
-		}
-	}
 }

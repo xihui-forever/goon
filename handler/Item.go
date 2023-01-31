@@ -3,8 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"github.com/darabuchi/log"
-	"io"
-	"net/http"
 	"reflect"
 )
 
@@ -99,7 +97,7 @@ func NewItem(method Method, logic any) *Item {
 	return item
 }
 
-func (p *Item) Call(ctx *Ctx, writer http.ResponseWriter, request *http.Request) error {
+func (p *Item) Call(ctx *Ctx) error {
 	in := []reflect.Value{
 		// 第一个入参是固定的
 		reflect.ValueOf(ctx),
@@ -107,14 +105,10 @@ func (p *Item) Call(ctx *Ctx, writer http.ResponseWriter, request *http.Request)
 
 	// 如果存在第二个入参
 	if p.reqType != nil {
-		buf, err := io.ReadAll(request.Body)
-		if err != nil {
-			log.Errorf("err:%v", err)
-			return err
-		}
+		buf := ctx.request.Body()
 
 		req := reflect.New(p.reqType)
-		err = json.Unmarshal(buf, req.Interface())
+		err := json.Unmarshal(buf, req.Interface())
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return err
@@ -151,11 +145,56 @@ func (p *Item) Call(ctx *Ctx, writer http.ResponseWriter, request *http.Request)
 		resp = []byte("{}")
 	}
 
-	_, err = writer.Write(resp)
-	if err != nil {
-		log.Errorf("err:%v", err)
-		return err
+	return ctx.Write(resp)
+}
+
+func (p *Item) CallOne(ctx *Ctx) ([]byte, error) {
+	in := []reflect.Value{
+		// 第一个入参是固定的
+		reflect.ValueOf(ctx),
 	}
 
-	return nil
+	// 如果存在第二个入参
+	if p.reqType != nil {
+		buf := ctx.request.Body()
+
+		req := reflect.New(p.reqType)
+		err := json.Unmarshal(buf, req.Interface())
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return nil, err
+		}
+
+		in = append(in, req)
+	}
+
+	// 调用处理方法
+	out := p.logic.Call(in)
+
+	// 只有一个返回值的
+	if p.respType == nil {
+		if out[0].Interface() != nil {
+			return nil, out[0].Interface().(error)
+		}
+		return nil, nil
+	}
+
+	// 有两个返回值的
+	if out[1].Interface() != nil {
+		return nil, out[1].Interface().(error)
+	}
+
+	var resp []byte
+	var err error
+	if out[0].IsValid() {
+		resp, err = json.Marshal(out[0].Interface())
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return nil, err
+		}
+	} else {
+		resp = []byte("{}")
+	}
+
+	return resp, nil
 }
