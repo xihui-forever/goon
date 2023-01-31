@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"bytes"
 	"fmt"
+	"time"
+
 	"github.com/darabuchi/log"
 	"github.com/darabuchi/utils"
 	"github.com/valyala/fasthttp"
@@ -9,6 +12,8 @@ import (
 
 type Handler struct {
 	trie *Trie
+
+	OnError func(ctx *Ctx, err error)
 }
 
 func NewHandler() *Handler {
@@ -20,17 +25,38 @@ func NewHandler() *Handler {
 }
 
 func (p *Handler) Call(response *fasthttp.Response, request *fasthttp.Request) error {
-	// 根据request的path，找到对应的logic，并且调用
-	method := Method(request.Header.Method())
-	itemList, err := p.trie.Find(method, request.URI().String())
+	ctx, err := NewCtx(response, request)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
+	defer func() {
+		// 接收panic的信息，防止某一个请求导致程序崩溃
+		if err := recover(); err != nil {
+			log.Errorf("PANIC err:%v", err)
+			if p.OnError != nil {
+				p.OnError(ctx, fmt.Errorf("%v", err))
+			}
+		}
+	}()
 
-	context := &Ctx{
-		response: response,
-		request:  request,
+	var b bytes.Buffer
+	b.WriteString("method:")
+	b.WriteString(string(ctx.Method()))
+	b.WriteString(" path:")
+	b.WriteString(ctx.Path())
+
+	log.Info("request ", b.String())
+	defer func() {
+		b.WriteString("used:")
+		b.WriteString(time.Since(ctx.createdAt).String())
+		log.Info("response ", b.String())
+	}()
+
+	itemList, err := p.trie.Find(ctx.Method(), ctx.Path())
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
 	}
 
 	call := func(value *Item, ctx *Ctx) (res []byte, err error) {
@@ -54,7 +80,7 @@ func (p *Handler) Call(response *fasthttp.Response, request *fasthttp.Request) e
 	var res []byte
 	for index, value := range itemList {
 		if value.method != PostUse {
-			res, err = call(value, context)
+			res, err = call(value, ctx)
 			if err != nil {
 				break
 			}
@@ -65,14 +91,15 @@ func (p *Handler) Call(response *fasthttp.Response, request *fasthttp.Request) e
 	for i := key; i >= 0; i-- {
 		value := itemList[i]
 		if value.method == PostUse {
-			res, err = call(value, context)
+			res, err = call(value, ctx)
 			if err != nil {
 				break
 			}
 		}
 	}
-	return context.Write(res)
 
+	ctx.Write(res)
+	return nil
 }
 
 func (p *Handler) Register(method Method, path string, logic interface{}) {
@@ -100,4 +127,10 @@ func (p *Handler) PreUse(path string, logic any) {
 
 func (p *Handler) PostUse(path string, logic any) {
 	p.Register(PostUse, path, logic)
+}
+
+func (p *Handler) onError(ctx *Ctx, err error) {
+	if p.OnError != nil {
+		p.onError(ctx, err)
+	}
 }

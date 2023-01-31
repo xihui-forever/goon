@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/darabuchi/log v0.0.0-20230116101949-9904b5700415
 	github.com/darabuchi/utils v0.0.0-20230116102056-5acc79b410e1
+	github.com/valyala/fasthttp v1.40.0
 )
 
 require (
@@ -32,7 +33,6 @@ require (
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.40.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect

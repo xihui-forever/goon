@@ -2,8 +2,9 @@ package handler
 
 import (
 	"encoding/json"
-	"github.com/darabuchi/log"
 	"reflect"
+
+	"github.com/darabuchi/log"
 )
 
 type Item struct {
@@ -156,10 +157,8 @@ func (p *Item) CallOne(ctx *Ctx) ([]byte, error) {
 
 	// 如果存在第二个入参
 	if p.reqType != nil {
-		buf := ctx.request.Body()
-
 		req := reflect.New(p.reqType)
-		err := json.Unmarshal(buf, req.Interface())
+		err := ctx.ParseBody(req.Interface())
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return nil, err
