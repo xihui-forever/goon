@@ -10,12 +10,13 @@ import (
 )
 
 type Ctx struct {
-	response  *fasthttp.Response
-	request   *fasthttp.Request
-	body      []byte
-	method    Method
-	path      string
-	createdAt time.Time
+	response   *fasthttp.Response
+	request    *fasthttp.Request
+	body       []byte
+	method     Method
+	path       string
+	createdAt  time.Time
+	isChuncked bool
 }
 
 func NewCtx(response *fasthttp.Response, request *fasthttp.Request) (*Ctx, error) {
@@ -25,9 +26,10 @@ func NewCtx(response *fasthttp.Response, request *fasthttp.Request) (*Ctx, error
 		response: response,
 		request:  request,
 
-		body:   request.Body(),
-		method: Method(request.Header.Method()),
-		path:   request.URI().String(),
+		body:       request.Body(),
+		method:     Method(request.Header.Method()),
+		path:       request.URI().String(),
+		isChuncked: false,
 	}
 
 	return p, nil
@@ -85,6 +87,7 @@ func (p *Ctx) SetHeader(key string, value string) {
 		switch value {
 		case "chunked":
 			// TODO ctx添加标记
+			p.isChuncked = true
 		}
 	}
 }

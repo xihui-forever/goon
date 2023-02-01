@@ -98,7 +98,7 @@ func NewItem(method Method, logic any) *Item {
 	return item
 }
 
-func (p *Item) Call(ctx *Ctx) error {
+func (p *Item) TransferChrunked(ctx *Ctx) error {
 	in := []reflect.Value{
 		// 第一个入参是固定的
 		reflect.ValueOf(ctx),
@@ -106,10 +106,8 @@ func (p *Item) Call(ctx *Ctx) error {
 
 	// 如果存在第二个入参
 	if p.reqType != nil {
-		buf := ctx.request.Body()
-
 		req := reflect.New(p.reqType)
-		err := json.Unmarshal(buf, req.Interface())
+		err := ctx.ParseBody(req.Interface())
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return err
@@ -146,10 +144,12 @@ func (p *Item) Call(ctx *Ctx) error {
 		resp = []byte("{}")
 	}
 
-	return ctx.Write(resp)
+	ctx.Send(resp)
+
+	return nil
 }
 
-func (p *Item) CallOne(ctx *Ctx) ([]byte, error) {
+func (p *Item) TransferOneOff(ctx *Ctx) ([]byte, error) {
 	in := []reflect.Value{
 		// 第一个入参是固定的
 		reflect.ValueOf(ctx),

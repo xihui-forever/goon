@@ -63,15 +63,33 @@ func main() {
 		return nil
 	})
 
-	_ = fasthttp.ListenAndServe(":8080", func(ctx *fasthttp.RequestCtx) {
-		err := mux.Call(&ctx.Response, &ctx.Request)
-		if err != nil {
-			log.Errorf("err:%v", err)
-			ctx.Response.Header.SetStatusCode(fasthttp.StatusInternalServerError)
-			_, e := ctx.Write([]byte(err.Error()))
-			if e != nil {
-				log.Errorf("err:%v", e)
+	s1 := &fasthttp.Server{
+		Handler: func(ctx *fasthttp.RequestCtx) {
+			err := mux.CallOneOff(&ctx.Response, &ctx.Request)
+			if err != nil {
+				log.Errorf("err:%v", err)
+				ctx.Response.Header.SetStatusCode(fasthttp.StatusInternalServerError)
+				_, e := ctx.Write([]byte(err.Error()))
+				if e != nil {
+					log.Errorf("err:%v", e)
+				}
 			}
-		}
-	})
+		},
+	}
+
+	s2 := &fasthttp.Server{
+		Handler: func(ctx *fasthttp.RequestCtx) {
+			err := mux.CallChrunked(&ctx.Response, &ctx.Request)
+			if err != nil {
+				log.Errorf("err:%v", err)
+				ctx.Response.Header.SetStatusCode(fasthttp.StatusInternalServerError)
+				_, e := ctx.Write([]byte(err.Error()))
+				if e != nil {
+					log.Errorf("err:%v", e)
+				}
+			}
+		},
+	}
+	_ = s1.ListenAndServe(":8080")
+	_ = s2.ListenAndServe(":8080")
 }

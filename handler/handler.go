@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"time"
@@ -24,12 +25,29 @@ func NewHandler() *Handler {
 	return p
 }
 
-func (p *Handler) Call(response *fasthttp.Response, request *fasthttp.Request) error {
+func (p *Handler) CallOneOff(response *fasthttp.Response, request *fasthttp.Request) error {
 	ctx, err := NewCtx(response, request)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
+	p.Call(ctx)
+	return nil
+}
+
+func (p *Handler) CallChrunked(response *fasthttp.Response, request *fasthttp.Request) error {
+	ctx, err := NewCtx(response, request)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+	ctx.Chucked(func(w *bufio.Writer) {
+		p.Call(ctx)
+	})
+	return nil
+}
+
+func (p *Handler) Call(ctx *Ctx) error {
 	defer func() {
 		// 接收panic的信息，防止某一个请求导致程序崩溃
 		if err := recover(); err != nil {
@@ -68,7 +86,11 @@ func (p *Handler) Call(response *fasthttp.Response, request *fasthttp.Request) e
 			}
 		})
 
-		res, err = value.CallOne(ctx)
+		if ctx.isChuncked {
+			err = value.TransferChrunked(ctx)
+		} else {
+			res, err = value.TransferOneOff(ctx)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -98,7 +120,9 @@ func (p *Handler) Call(response *fasthttp.Response, request *fasthttp.Request) e
 		}
 	}
 
-	ctx.Write(res)
+	if !(ctx.isChuncked) {
+		ctx.Write(res)
+	}
 	return nil
 }
 
