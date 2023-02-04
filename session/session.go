@@ -1,52 +1,91 @@
 package session
 
 import (
+	"time"
+
 	"github.com/darabuchi/log"
 	"github.com/nats-io/nuid"
-	"github.com/xihui-forever/goon/handler"
 	"github.com/xihui-forever/goon/storage"
-	"time"
+	"github.com/xihui-forever/goon/storage/memory"
 )
 
 var (
 	nid = nuid.New()
+
+	def = NewSession(memory.New())
 )
 
-func HasSession(ctx *handler.Ctx, storage storage.Storage) (bool, error) {
-	sid := ctx.GetSid()
-	_, err := storage.Get(sid)
-	if err != nil {
-		log.Errorf("err:%v", err)
-		return false, err
-	}
-	return true, nil
+type Session struct {
+	storage storage.Storage
 }
 
-func GenSession(data any, storage storage.Storage) (err error) {
+func NewSession(storage storage.Storage) *Session {
+	return &Session{
+		storage: storage,
+	}
+}
+
+func (s *Session) GenSession(data any, timeout time.Duration) (string, error) {
 	var sid string
 	for i := 0; i < 3; i++ {
 		sid = "session_" + nid.Next()
-		ok, err := storage.SetNx(sid, data)
+		ok, err := s.storage.SetNx(sid, data)
 		if err != nil {
 			log.Errorf("err:%v", err)
-			return err
+			return "", err
 		}
 		if ok {
-			return nil
+			err = s.storage.Expire(sid, timeout)
+			if err != nil {
+				log.Errorf("err:%v", err)
+			}
+			return sid, nil
 		}
 	}
-	return ErrSessionGenerateFail
+
+	return "", ErrSessionGenerateFail
 }
 
-func GetSession(sid string, storage storage.Storage) (string, error) {
-	data, err := storage.Get(sid)
+func (s *Session) GetSession(sid string) (string, error) {
+	data, err := s.storage.Get(sid)
 	if err != nil {
+		if err == storage.ErrKeyNotExist {
+			return "", ErrSessionNotExist
+		}
+
 		log.Errorf("err:%v", err)
 		return "", err
 	}
+
 	return data, nil
 }
 
-func SetSessionExpire(sid string, t time.Duration, storage storage.Storage) error {
-	return storage.Expire(sid, t)
+func (s *Session) Expire(sid string, t time.Duration) error {
+	err := s.storage.Expire(sid, t)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *Session) SetStorage(storage storage.Storage) {
+	s.storage = storage
+}
+
+func GenSession(data any, timeout time.Duration) (string, error) {
+	return def.GenSession(data, timeout)
+}
+
+func GetSession(sid string) (string, error) {
+	return def.GetSession(sid)
+}
+
+func Expire(sid string, t time.Duration, storage storage.Storage) error {
+	return def.Expire(sid, t)
+}
+
+func SetStorage(s storage.Storage) {
+	def.SetStorage(s)
 }

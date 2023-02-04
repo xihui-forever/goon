@@ -3,15 +3,20 @@ module github.com/xihui-forever/goon
 go 1.19
 
 require (
+	github.com/bytedance/sonic v1.5.0
 	github.com/darabuchi/log v0.0.0-20230116101949-9904b5700415
 	github.com/darabuchi/utils v0.0.0-20230116102056-5acc79b410e1
+	github.com/gomodule/redigo v1.8.9
+	github.com/nats-io/nuid v1.0.1
+	github.com/shomali11/xredis v0.0.0-20190608143638-0b54a6bbf40b
 	github.com/valyala/fasthttp v1.40.0
 )
 
 require (
+	github.com/FZambia/go-sentinel v0.0.0-20171204085413-76bd05e8e22f // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
-	github.com/bytedance/sonic v1.5.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20220526154910-8bf9453eb81a // indirect
+	github.com/garyburd/redigo v1.6.4 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.11.1 // indirect
@@ -26,7 +31,6 @@ require (
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mcuadros/go-defaults v1.2.0 // indirect
-	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/petermattis/goid v0.0.0-20221018141743-354ef7f2fd21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
