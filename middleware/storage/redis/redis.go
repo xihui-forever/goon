@@ -7,7 +7,7 @@ import (
 	"github.com/darabuchi/utils"
 	"github.com/garyburd/redigo/redis"
 	"github.com/shomali11/xredis"
-	"github.com/xihui-forever/goon/storage"
+	"github.com/xihui-forever/goon/middleware/storage"
 )
 
 type Redis struct {

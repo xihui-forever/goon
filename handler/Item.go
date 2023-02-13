@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/darabuchi/log"
+	"github.com/xihui-forever/goon/ctx"
 )
 
 type Item struct {
@@ -98,7 +99,7 @@ func NewItem(method Method, logic any) *Item {
 	return item
 }
 
-func (p *Item) TransferChrunked(ctx *Ctx) error {
+func (p *Item) TransferChrunked(ctx *ctx.Ctx) error {
 	in := []reflect.Value{
 		// 第一个入参是固定的
 		reflect.ValueOf(ctx),
@@ -149,7 +150,7 @@ func (p *Item) TransferChrunked(ctx *Ctx) error {
 	return nil
 }
 
-func (p *Item) TransferOneOff(ctx *Ctx) ([]byte, error) {
+func (p *Item) TransferOneOff(ctx *ctx.Ctx) ([]byte, error) {
 	in := []reflect.Value{
 		// 第一个入参是固定的
 		reflect.ValueOf(ctx),

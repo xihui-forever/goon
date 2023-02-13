@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/elliotchance/pie/v2"
-	"github.com/xihui-forever/goon/storage"
+	"github.com/xihui-forever/goon/middleware/storage"
 )
 
 type Memory struct {

@@ -9,12 +9,13 @@ import (
 	"github.com/darabuchi/log"
 	"github.com/darabuchi/utils"
 	"github.com/valyala/fasthttp"
+	"github.com/xihui-forever/goon/ctx"
 )
 
 type Handler struct {
 	trie *Trie
 
-	OnError func(ctx *Ctx, err error)
+	OnError func(ctx *ctx.Ctx, err error)
 }
 
 func NewHandler() *Handler {
@@ -26,17 +27,16 @@ func NewHandler() *Handler {
 }
 
 func (p *Handler) CallOneOff(response *fasthttp.Response, request *fasthttp.Request) error {
-	ctx, err := NewCtx(response, request)
+	ctx, err := ctx.NewCtx(response, request)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
 	}
-	p.Call(ctx)
-	return nil
+	return p.Call(ctx)
 }
 
 func (p *Handler) CallChrunked(response *fasthttp.Response, request *fasthttp.Request) error {
-	ctx, err := NewCtx(response, request)
+	ctx, err := ctx.NewCtx(response, request)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return err
@@ -47,7 +47,7 @@ func (p *Handler) CallChrunked(response *fasthttp.Response, request *fasthttp.Re
 	return nil
 }
 
-func (p *Handler) Call(ctx *Ctx) error {
+func (p *Handler) Call(ctx *ctx.Ctx) error {
 	defer func() {
 		// 接收panic的信息，防止某一个请求导致程序崩溃
 		if err := recover(); err != nil {
@@ -77,7 +77,7 @@ func (p *Handler) Call(ctx *Ctx) error {
 		return err
 	}
 
-	call := func(value *Item, ctx *Ctx) (res []byte, err error) {
+	call := func(value *Item, ctx *ctx.Ctx) (res []byte, err error) {
 		defer utils.CachePanicWithHandle(func(err interface{}) {
 			if e, ok := err.(error); ok {
 				err = e
@@ -153,7 +153,7 @@ func (p *Handler) PostUse(path string, logic any) {
 	p.Register(PostUse, path, logic)
 }
 
-func (p *Handler) onError(ctx *Ctx, err error) {
+func (p *Handler) onError(ctx *ctx.Ctx, err error) {
 	if p.OnError != nil {
 		p.onError(ctx, err)
 	}

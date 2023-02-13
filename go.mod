@@ -8,7 +8,6 @@ require (
 	github.com/darabuchi/utils v0.0.0-20230116102056-5acc79b410e1
 	github.com/elliotchance/pie/v2 v2.3.0
 	github.com/garyburd/redigo v1.6.4
-	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/nats-io/nuid v1.0.1
 	github.com/shomali11/xredis v0.0.0-20190608143638-0b54a6bbf40b
 	github.com/valyala/fasthttp v1.40.0

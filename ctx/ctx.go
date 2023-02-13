@@ -1,4 +1,4 @@
-package handler
+package ctx
 
 import (
 	"bufio"
@@ -7,13 +7,14 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/darabuchi/log"
 	"github.com/valyala/fasthttp"
+	"github.com/xihui-forever/goon/handler"
 )
 
 type Ctx struct {
 	response   *fasthttp.Response
 	request    *fasthttp.Request
 	body       []byte
-	method     Method
+	method     handler.Method
 	path       string
 	createdAt  time.Time
 	isChuncked bool
@@ -27,7 +28,7 @@ func NewCtx(response *fasthttp.Response, request *fasthttp.Request) (*Ctx, error
 		request:  request,
 
 		body:       request.Body(),
-		method:     Method(request.Header.Method()),
+		method:     handler.Method(request.Header.Method()),
 		path:       request.URI().String(),
 		isChuncked: false,
 	}
@@ -35,7 +36,7 @@ func NewCtx(response *fasthttp.Response, request *fasthttp.Request) (*Ctx, error
 	return p, nil
 }
 
-func (p *Ctx) Method() Method {
+func (p *Ctx) Method() handler.Method {
 	return p.method
 }
 
@@ -51,14 +52,6 @@ func (p *Ctx) ParseBody(obj any) error {
 	return sonic.Unmarshal(p.Body(), obj)
 }
 
-func (p *Ctx) GetSid() string {
-	if p == nil {
-		return ""
-	}
-
-	return string(p.request.Header.Peek("X-Session-Id"))
-}
-
 func (p *Ctx) Write(res []byte) {
 	p.response.AppendBody(res)
 }
@@ -69,7 +62,7 @@ func (p *Ctx) Send(res []byte) {
 }
 
 func (p *Ctx) Chucked(logic func(w *bufio.Writer)) {
-	p.SetHeader(TransferEncoding, "chunked")
+	p.SetHeader(handler.TransferEncoding, "chunked")
 	p.response.SetBodyStreamWriter(func(w *bufio.Writer) {
 		logic(w)
 		err := w.Flush()
@@ -83,7 +76,7 @@ func (p *Ctx) Chucked(logic func(w *bufio.Writer)) {
 func (p *Ctx) SetHeader(key string, value string) {
 	p.response.Header.Set(key, value)
 	switch key {
-	case TransferEncoding:
+	case handler.TransferEncoding:
 		switch value {
 		case "chunked":
 			// TODO ctx添加标记

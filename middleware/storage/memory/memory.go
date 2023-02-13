@@ -4,10 +4,10 @@ import (
 	"time"
 
 	"github.com/darabuchi/utils"
-	"github.com/xihui-forever/goon/storage/memory/fifo"
-	"github.com/xihui-forever/goon/storage/memory/hashmap"
-	"github.com/xihui-forever/goon/storage/memory/lifo"
-	"github.com/xihui-forever/goon/storage/memory/lru"
+	"github.com/xihui-forever/goon/middleware/storage/memory/fifo"
+	"github.com/xihui-forever/goon/middleware/storage/memory/hashmap"
+	"github.com/xihui-forever/goon/middleware/storage/memory/lifo"
+	"github.com/xihui-forever/goon/middleware/storage/memory/lru"
 	"go.uber.org/atomic"
 )
 
@@ -103,7 +103,7 @@ func (p *Memory) Close() error {
 	return nil
 }
 
-func NewMemory(opt Option) *Memory {
+func New(opt Option) *Memory {
 	p := &Memory{
 		opt:  opt,
 		size: atomic.NewInt64(0),

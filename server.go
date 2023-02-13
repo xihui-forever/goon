@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+
 	"github.com/darabuchi/log"
 	"github.com/valyala/fasthttp"
+	"github.com/xihui-forever/goon/ctx"
 	"github.com/xihui-forever/goon/handler"
 )
 
@@ -34,31 +36,31 @@ type (
 func main() {
 	mux := handler.NewHandler()
 
-	mux.PreUse("/User", func(ctx *handler.Ctx) error {
+	mux.PreUse("/User", func(ctx *ctx.Ctx) error {
 		return nil
 	})
-	//group := group.use()
+	// group := group.use()
 
-	mux.Head("/ ", func(ctx *handler.Ctx) error {
+	mux.Head("/ ", func(ctx *ctx.Ctx) error {
 		return nil
 	})
 
-	mux.Get("/GetMe", func(ctx *handler.Ctx) (**GetUserRsp, error) {
+	mux.Get("/GetMe", func(ctx *ctx.Ctx) (**GetUserRsp, error) {
 
 		return nil, errors.New("not handle")
 	})
 
-	mux.Post("/SetMe", func(ctx *handler.Ctx, req *SetUserReq) error {
+	mux.Post("/SetMe", func(ctx *ctx.Ctx, req *SetUserReq) error {
 
 		return errors.New("not handle")
 	})
 
-	mux.Post("/User/SetUser", func(ctx *handler.Ctx, req *SetUserReq) error {
+	mux.Post("/User/SetUser", func(ctx *ctx.Ctx, req *SetUserReq) error {
 
 		return errors.New("not handle")
 	})
 
-	mux.PostUse("/User", func(ctx *handler.Ctx) error {
+	mux.PostUse("/User", func(ctx *ctx.Ctx) error {
 
 		return nil
 	})

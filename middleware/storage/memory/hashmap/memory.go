@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xihui-forever/goon/storage"
+	"github.com/xihui-forever/goon/middleware/storage"
 )
 
 /*
