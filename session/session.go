@@ -6,13 +6,13 @@ import (
 	"github.com/darabuchi/log"
 	"github.com/nats-io/nuid"
 	"github.com/xihui-forever/goon/storage"
-	"github.com/xihui-forever/goon/storage/memory"
+	"github.com/xihui-forever/goon/storage/memory/hashmap"
 )
 
 var (
 	nid = nuid.New()
 
-	def = NewSession(memory.New())
+	def = NewSession(hashmap.New())
 )
 
 type Session struct {

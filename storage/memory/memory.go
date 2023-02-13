@@ -1,69 +1,147 @@
 package memory
 
 import (
-	"sync"
 	"time"
 
-	"github.com/xihui-forever/goon/storage"
+	"github.com/darabuchi/utils"
+	"github.com/xihui-forever/goon/storage/memory/fifo"
+	"github.com/xihui-forever/goon/storage/memory/hashmap"
+	"github.com/xihui-forever/goon/storage/memory/lifo"
+	"github.com/xihui-forever/goon/storage/memory/lru"
+	"go.uber.org/atomic"
 )
 
-/*
-		TODO: 1. 通过协程清理过期的key
-	          2. 在用户调用方法时，清理过期的key
-	          3. 允许用户选择清理的机制（1或者是2）
-*/
+type MemoryInerface interface {
+	SetNx(key string, value string) (bool, error)
+	Get(key string) (string, error)
+	Expire(key string, timeout time.Duration) error
+	Clean(func(size int64) (stop bool))
+}
+
+type CleanType int
+
+const (
+	CleanFasterSize CleanType = iota
+	CleanFasterObject
+	CleanBetterSize
+	CleanBetterObject
+)
+
+type DataType int
+
+const (
+	Hashmap DataType = iota
+	Fifo
+	Lru
+	Lifo
+)
+
+type Option struct {
+	CleanType CleanType
+
+	MaxSize int64
+
+	DataType DataType
+}
+
 type Memory struct {
-	data sync.Map
+	inter MemoryInerface
+	opt   Option
+
+	size *atomic.Int64
+	c    chan struct{}
 }
 
-type Item struct {
-	value    string
-	expireAt time.Time
+func (p *Memory) SetNx(key string, value interface{}) (ok bool, err error) {
+	v := utils.ToString(value)
+	ok, err = p.inter.SetNx(key, v)
+	if err != nil {
+		return
+	}
+
+	if ok {
+		switch p.opt.CleanType {
+		case CleanFasterSize:
+			if p.size.Add(int64(len(v))) > p.opt.MaxSize {
+				p.inter.Clean(func(size int64) (stop bool) {
+					if p.size.Add(-size) <= p.opt.MaxSize {
+						stop = true
+					}
+					return
+				})
+			}
+		case CleanFasterObject:
+			if p.size.Inc() > p.opt.MaxSize {
+				p.inter.Clean(func(size int64) (stop bool) {
+					if p.size.Dec() <= p.opt.MaxSize {
+						stop = true
+					}
+					return
+				})
+			}
+		case CleanBetterSize:
+			p.size.Add(int64(len(v)))
+		case CleanBetterObject:
+			p.size.Inc()
+		}
+	}
+	return
 }
 
-func (m *Memory) SetNx(key string, value interface{}) (bool, error) {
-	_, loaded := m.data.LoadOrStore(key, &Item{
-		value: value.(string),
-	})
-	return !loaded, nil
+func (p *Memory) Get(key string) (string, error) {
+	return p.inter.Get(key)
 }
 
-func (m *Memory) Get(key string) (string, error) {
-	val, ok := m.data.Load(key)
-	if !ok {
-		return "", storage.ErrKeyNotExist
-	}
-	item := val.(*Item)
-	if !item.expireAt.IsZero() && item.expireAt.Before(time.Now()) {
-		m.data.Delete(key)
-		return "", storage.ErrKeyNotExist
-	}
-
-	return item.value, nil
+func (p *Memory) Expire(key string, timeout time.Duration) error {
+	return p.inter.Expire(key, timeout)
 }
 
-func (m *Memory) Expire(key string, timeout time.Duration) error {
-	val, ok := m.data.Load(key)
-	if !ok {
-		return storage.ErrKeyNotExist
+func (p *Memory) Close() error {
+	select {
+	case <-p.c:
 	}
-	item := val.(*Item)
-	if !item.expireAt.IsZero() && item.expireAt.Before(time.Now()) {
-		m.data.Delete(key)
-		return storage.ErrKeyNotExist
-	}
-
-	item.expireAt = time.Now().Add(timeout)
-	m.data.Store(key, item)
-
 	return nil
 }
 
-func (m *Memory) Close() error {
-	return nil
-}
+func NewMemory(opt Option) *Memory {
+	p := &Memory{
+		opt:  opt,
+		size: atomic.NewInt64(0),
 
-func New() *Memory {
-	p := &Memory{}
+		c: make(chan struct{}, 1),
+	}
+
+	switch opt.DataType {
+	case Hashmap:
+		p.inter = hashmap.New()
+	case Fifo:
+		p.inter = fifo.New()
+	case Lru:
+		p.inter = lru.New()
+	case Lifo:
+		p.inter = lifo.New()
+	default:
+		panic("not support")
+	}
+
+	switch p.opt.CleanType {
+	case CleanBetterSize, CleanBetterObject:
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					p.inter.Clean(func(size int64) (stop bool) {
+						return false
+					})
+				case <-p.c:
+					return
+				}
+			}
+		}()
+	}
+
 	return p
 }

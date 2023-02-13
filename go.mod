@@ -6,17 +6,19 @@ require (
 	github.com/bytedance/sonic v1.5.0
 	github.com/darabuchi/log v0.0.0-20230116101949-9904b5700415
 	github.com/darabuchi/utils v0.0.0-20230116102056-5acc79b410e1
-	github.com/gomodule/redigo v1.8.9
+	github.com/elliotchance/pie/v2 v2.3.0
+	github.com/garyburd/redigo v1.6.4
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/nats-io/nuid v1.0.1
 	github.com/shomali11/xredis v0.0.0-20190608143638-0b54a6bbf40b
 	github.com/valyala/fasthttp v1.40.0
+	go.uber.org/atomic v1.10.0
 )
 
 require (
 	github.com/FZambia/go-sentinel v0.0.0-20171204085413-76bd05e8e22f // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20220526154910-8bf9453eb81a // indirect
-	github.com/garyburd/redigo v1.6.4 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.11.1 // indirect
@@ -38,11 +40,11 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/arch v0.0.0-20220927172834-6a65923eb742 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
