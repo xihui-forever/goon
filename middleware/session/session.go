@@ -132,7 +132,7 @@ func Handler[M any](opt Option[M]) func(ctx *ctx.Ctx) error {
 		}
 
 		var obj M
-		err = sonic.UnmarshalString((data), &obj)
+		err = sonic.UnmarshalString(data, &obj)
 		if err != nil {
 			log.Errorf("err:%v", err)
 			if opt.OnError != nil {
