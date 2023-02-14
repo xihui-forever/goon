@@ -151,6 +151,6 @@ func Handler[M any](opt Option[M]) func(ctx *goon.Ctx) error {
 			return opt.OnSuccess(ctx, obj)
 		}
 
-		return nil
+		return ctx.Next()
 	}
 }

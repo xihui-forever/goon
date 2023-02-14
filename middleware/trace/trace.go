@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"github.com/darabuchi/log"
 	"github.com/xihui-forever/goon"
 )
 
@@ -15,8 +16,13 @@ func Handler(opt Option) func(ctx *goon.Ctx) error {
 	}
 
 	return func(ctx *goon.Ctx) error {
-		// TODO
+		traceId := ctx.GetReqHeader(opt.Header)
+		if traceId == "" {
+			traceId = log.GenTraceId()
+		}
+		log.SetTrace(traceId)
+		defer log.DelTrace()
 
-		return nil
+		return ctx.Next()
 	}
 }
