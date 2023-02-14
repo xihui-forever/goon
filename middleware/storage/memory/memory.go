@@ -5,9 +5,9 @@ import (
 
 	"github.com/darabuchi/utils"
 	"github.com/xihui-forever/goon/middleware/storage/memory/fifo"
-	"github.com/xihui-forever/goon/middleware/storage/memory/hashmap"
 	"github.com/xihui-forever/goon/middleware/storage/memory/lifo"
 	"github.com/xihui-forever/goon/middleware/storage/memory/lru"
+	"github.com/xihui-forever/goon/middleware/storage/memory/mem"
 	"go.uber.org/atomic"
 )
 
@@ -113,7 +113,7 @@ func New(opt Option) *Memory {
 
 	switch opt.DataType {
 	case Hashmap:
-		p.inter = hashmap.New()
+		p.inter = mem.New(false)
 	case Fifo:
 		p.inter = fifo.New()
 	case Lru:

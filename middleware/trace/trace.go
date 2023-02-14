@@ -5,6 +5,8 @@ import (
 	"github.com/xihui-forever/goon"
 )
 
+const DefaultHeader = "X-Goon-Trace"
+
 type Option struct {
 	// 读trace id的header，如果不存在，则使用 `X-Goon-Trace` 作为header
 	Header string `json:"header,omitempty"`
@@ -13,9 +15,9 @@ type Option struct {
 	GenTraceId func() string `json:"trace_id_func,omitempty"`
 }
 
-func Handler(opt Option) func(ctx *goon.Ctx) error {
+func Handler(opt Option) goon.Handler {
 	if opt.Header == "" {
-		opt.Header = "X-Goon-Trace"
+		opt.Header = DefaultHeader
 	}
 
 	if opt.GenTraceId == nil {

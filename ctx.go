@@ -1,11 +1,11 @@
 package goon
 
 import (
-	"bufio"
+	"net"
+	"net/netip"
+	"strings"
 	"time"
 
-	"github.com/bytedance/sonic"
-	"github.com/darabuchi/log"
 	"github.com/valyala/fasthttp"
 )
 
@@ -49,74 +49,101 @@ func (p *Ctx) Close() {
 	p.cache.Close()
 }
 
-func (p *Ctx) Body() []byte {
-	return p.context.Request.Body()
-}
-
-func (p *Ctx) ParseBody(obj any) error {
-	return sonic.Unmarshal(p.Body(), obj)
-}
-
-func (p *Ctx) Write(res []byte) {
-	p.context.Response.AppendBody(res)
-}
-
-func (p *Ctx) Send(res []byte) error {
-	p.context.Response.AppendBody(res)
-	return nil
-}
-
-func (p *Ctx) Chucked(logic func(w *bufio.Writer)) {
-	p.SetHeader(TransferEncoding, "chunked")
-	p.context.Response.SetBodyStreamWriter(func(w *bufio.Writer) {
-		logic(w)
-		err := w.Flush()
-		if err != nil {
-			log.Errorf("err:%v", err)
-			return
-		}
-	})
-}
-
-func (p *Ctx) SetHeader(key string, value string) {
-	p.context.Response.Header.Set(key, value)
-	switch key {
-	case TransferEncoding:
-		switch value {
-		case "chunked":
-			// TODO ctx添加标记
+func (p *Ctx) RealIp() string {
+	val := p.GetReqHeader("Cf-Connecting-Ip")
+	if val != "" {
+		if !netip.MustParseAddr(val).IsPrivate() {
+			return val
 		}
 	}
-}
 
-func (p *Ctx) Text(res string) {
-	// TODO: 缓存数据
-	p.context.Response.Header.Set("Content-Type", "text/plain")
-	p.context.Response.AppendBodyString(res)
-}
-
-func (p *Ctx) Json(res any) error {
-	// TODO: 缓存数据
-	data, err := sonic.Marshal(res)
-	if err != nil {
-		return err
+	val = p.GetReqHeader("Fastly-Client-Ip")
+	if val != "" {
+		if !netip.MustParseAddr(val).IsPrivate() {
+			return val
+		}
 	}
 
-	p.context.Response.Header.Set("Content-Type", "application/json")
-	p.context.Response.AppendBody(data)
-
-	return nil
-}
-
-func (p *Ctx) Jsonp(res any) error {
-	// TODO: 缓存数据
-	data, err := sonic.Marshal(res)
-	if err != nil {
-		return err
+	val = p.GetReqHeader("True-Client-Ip")
+	if val != "" {
+		if !netip.MustParseAddr(val).IsPrivate() {
+			return val
+		}
 	}
 
-	p.context.Response.Header.Set("Content-Type", "application/javascript")
-	p.context.Response.AppendBody(data)
+	val = p.GetReqHeader("X-Real-IP")
+	if val != "" {
+		if !netip.MustParseAddr(val).IsPrivate() {
+			return val
+		}
+	}
 
-	return nil
+	val = p.GetReqHeader("X-Client-IP")
+	if val != "" {
+		if !netip.MustParseAddr(val).IsPrivate() {
+			return val
+		}
+	}
+
+	val = p.GetReqHeader("X-Original-Forwarded-For")
+	if val != "" {
+		for _, v := range strings.Split(val, ",") {
+			if !netip.MustParseAddr(val).IsPrivate() {
+				return v
+			}
+		}
+		if !netip.MustParseAddr(val).IsPrivate() {
+			return val
+		}
+	}
+
+	val = p.GetReqHeader("X-Forwarded-For")
+	if val != "" {
+		for _, v := range strings.Split(val, ",") {
+			if net.ParseIP(v) != nil {
+				return v
+			}
+		}
+		if net.ParseIP(val) != nil {
+			return val
+		}
+	}
+
+	val = p.GetReqHeader("X-Forwarded")
+	if val != "" {
+		for _, v := range strings.Split(val, ",") {
+			if net.ParseIP(v) != nil {
+				return v
+			}
+		}
+		if net.ParseIP(val) != nil {
+			return val
+		}
+	}
+
+	val = p.GetReqHeader("Forwarded-For")
+	if val != "" {
+		for _, v := range strings.Split(val, ",") {
+			if net.ParseIP(v) != nil {
+				return v
+			}
+		}
+		if net.ParseIP(val) != nil {
+			return val
+		}
+	}
+
+	val = p.GetReqHeader("Forwarded")
+	if val != "" {
+		for _, v := range strings.Split(val, ",") {
+			if net.ParseIP(v) != nil {
+				return v
+			}
+		}
+		if net.ParseIP(val) != nil {
+			return val
+		}
+	}
+
+	return p.Context().RemoteIP().String()
 }

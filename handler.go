@@ -10,6 +10,8 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+type Handler func(ctx *Ctx) error
+
 type App struct {
 	trie *Trie
 

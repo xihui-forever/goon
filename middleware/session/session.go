@@ -111,7 +111,7 @@ type Option[M any] struct {
 	OnSuccess func(ctx *goon.Ctx, obj M) error     `json:"on_success,omitempty"`
 }
 
-func Handler[M any](opt Option[M]) func(ctx *goon.Ctx) error {
+func Handler[M any](opt Option[M]) goon.Handler {
 	if opt.Session == nil {
 		opt.Session = def
 	}
