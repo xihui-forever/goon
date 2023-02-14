@@ -1,0 +1,93 @@
+package redis
+
+import (
+	"time"
+
+	"github.com/darabuchi/log"
+	"github.com/darabuchi/utils"
+	"github.com/garyburd/redigo/redis"
+	"github.com/shomali11/xredis"
+	"github.com/xihui-forever/goon/middleware/storage"
+)
+
+type Redis struct {
+	client *xredis.Client
+}
+
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
+func New(cfg *RedisConfig) *Redis {
+	var opt []redis.DialOption
+	if cfg.Password != "" {
+		opt = append(opt, redis.DialPassword(cfg.Password))
+	}
+	if cfg.DB != 0 {
+		opt = append(opt, redis.DialDatabase(cfg.DB))
+	}
+
+	opt = append(opt,
+		redis.DialConnectTimeout(time.Second*3),
+		redis.DialReadTimeout(time.Second*3),
+		redis.DialWriteTimeout(time.Second*3),
+		redis.DialKeepAlive(time.Minute),
+	)
+
+	return &Redis{
+		client: xredis.NewClient(&redis.Pool{
+			Dial: func() (redis.Conn, error) {
+				return redis.Dial("tcp", cfg.Addr, opt...)
+			},
+			MaxIdle:     100,
+			MaxActive:   100,
+			IdleTimeout: time.Second * 5,
+			Wait:        true,
+		}),
+	}
+}
+
+func (r *Redis) SetNx(key string, data interface{}) (bool, error) {
+	ok, err := r.client.SetNx(key, utils.ToString(data))
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return false, err
+	}
+
+	if ok {
+		return true, nil
+	}
+
+	return ok, err
+}
+
+func (r *Redis) Get(key string) (string, error) {
+	val, ok, err := r.client.Get(key)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", storage.ErrKeyNotExist
+	}
+
+	return val, nil
+}
+
+func (r *Redis) Expire(key string, timeout time.Duration) error {
+	_, err := r.client.Expire(key, int64(timeout.Seconds()))
+	if err != nil {
+		if err == redis.ErrNil {
+			return storage.ErrKeyNotExist
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (r *Redis) Close() error {
+	return r.client.Close()
+}
