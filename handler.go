@@ -94,6 +94,10 @@ func (p *Handler) Head(path string, logic any) {
 	p.Register(Head, path, logic)
 }
 
+func (p *Handler) Use(path string, logic any) {
+	p.Register(Use, path, logic)
+}
+
 func (p *Handler) PreUse(path string, logic any) {
 	p.Register(PreUse, path, logic)
 }

@@ -44,7 +44,7 @@ func (t *Trie) Insert(word string, item *Logic) error {
 		node = value
 	}
 
-	if item.Method() != PreUse && item.Method() != PostUse {
+	if item.Method() != PreUse && item.Method() != PostUse && item.Method() != Use {
 		for _, value := range node.itemSet {
 			if value.Method() == item.Method() {
 				panic("logic already exists")
@@ -69,7 +69,7 @@ func (t *Trie) Find(method Method, word string) ([]*Logic, error) {
 		if value.char == "/" {
 			for _, value := range value.itemSet {
 				switch value.Method() {
-				case PreUse, PostUse:
+				case PreUse, PostUse, Use:
 					itemList = append(itemList, value)
 				case method:
 					if index == len(word)-1 {
