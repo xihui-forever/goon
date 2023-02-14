@@ -106,6 +106,7 @@ type Option[M any] struct {
 	// 过期时间，如果不存在，则使用默认的过期时间，time.Hour
 	Expiration time.Duration `json:"expiration,omitempty"`
 
+	NeedSkip  func(ctx *ctx.Ctx) bool             `json:"need_skip,omitempty"`
 	OnError   func(ctx *ctx.Ctx, err error) error `json:"on_error,omitempty"`
 	OnSuccess func(ctx *ctx.Ctx, obj M) error     `json:"on_success,omitempty"`
 }
@@ -120,6 +121,11 @@ func Handler[M any](opt Option[M]) func(ctx *ctx.Ctx) error {
 	}
 
 	return func(ctx *ctx.Ctx) error {
+		if opt.NeedSkip != nil && opt.NeedSkip(ctx) {
+			log.Debugf("skip check session")
+			return nil
+		}
+
 		sid := ctx.GetReqHeader(opt.Header)
 
 		data, err := opt.Session.GetSession(sid)
