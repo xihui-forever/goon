@@ -6,7 +6,7 @@ import (
 )
 
 type Option struct {
-	Next func(ctx *goon.Ctx) error
+	OnPanic func(ctx *goon.Ctx, err interface{}) error
 }
 
 func Handler(opt Option) goon.Handler {
@@ -15,8 +15,8 @@ func Handler(opt Option) goon.Handler {
 			// 接收panic的信息，防止某一个请求导致程序崩溃
 			if e := recover(); e != nil {
 				log.Errorf("PANIC err:%v", e)
-				if opt.Next != nil {
-					err = opt.Next(ctx)
+				if opt.OnPanic != nil {
+					err = opt.OnPanic(ctx, e)
 				}
 			}
 		}()
