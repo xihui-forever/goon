@@ -5,8 +5,7 @@ import (
 
 	"github.com/darabuchi/log"
 	"github.com/valyala/fasthttp"
-	"github.com/xihui-forever/goon/ctx"
-	"github.com/xihui-forever/goon/handler"
+	"github.com/xihui-forever/goon"
 )
 
 type (
@@ -34,40 +33,40 @@ type (
 )
 
 func main() {
-	mux := handler.NewHandler()
+	mux := goon.NewHandler()
 
-	mux.PreUse("/User", func(ctx *ctx.Ctx) error {
+	mux.PreUse("/User", func(ctx *goon.Ctx) error {
 		return nil
 	})
 	// group := group.use()
 
-	mux.Head("/ ", func(ctx *ctx.Ctx) error {
+	mux.Head("/ ", func(ctx *goon.Ctx) error {
 		return nil
 	})
 
-	mux.Get("/GetMe", func(ctx *ctx.Ctx) (**GetUserRsp, error) {
+	mux.Get("/GetMe", func(ctx *goon.Ctx) (**GetUserRsp, error) {
 
 		return nil, errors.New("not handle")
 	})
 
-	mux.Post("/SetMe", func(ctx *ctx.Ctx, req *SetUserReq) error {
+	mux.Post("/SetMe", func(ctx *goon.Ctx, req *SetUserReq) error {
 
 		return errors.New("not handle")
 	})
 
-	mux.Post("/User/SetUser", func(ctx *ctx.Ctx, req *SetUserReq) error {
+	mux.Post("/User/SetUser", func(ctx *goon.Ctx, req *SetUserReq) error {
 
 		return errors.New("not handle")
 	})
 
-	mux.PostUse("/User", func(ctx *ctx.Ctx) error {
+	mux.PostUse("/User", func(ctx *goon.Ctx) error {
 
 		return nil
 	})
 
 	s1 := &fasthttp.Server{
 		Handler: func(ctx *fasthttp.RequestCtx) {
-			err := mux.CallOneOff(&ctx.Response, &ctx.Request)
+			err := mux.Call(ctx)
 			if err != nil {
 				log.Errorf("err:%v", err)
 				ctx.Response.Header.SetStatusCode(fasthttp.StatusInternalServerError)
@@ -79,19 +78,21 @@ func main() {
 		},
 	}
 
-	s2 := &fasthttp.Server{
-		Handler: func(ctx *fasthttp.RequestCtx) {
-			err := mux.CallChrunked(&ctx.Response, &ctx.Request)
-			if err != nil {
-				log.Errorf("err:%v", err)
-				ctx.Response.Header.SetStatusCode(fasthttp.StatusInternalServerError)
-				_, e := ctx.Write([]byte(err.Error()))
-				if e != nil {
-					log.Errorf("err:%v", e)
-				}
-			}
-		},
-	}
+	// s2 := &fasthttp.Server{
+	// 	Handler: func(ctx *fasthttp.RequestCtx) {
+	// 		err := mux.CallChrunked(&ctx.Response, &ctx.Request)
+	// 		if err != nil {
+	// 			log.Errorf("err:%v", err)
+	// 			ctx.Response.Header.SetStatusCode(fasthttp.StatusInternalServerError)
+	// 			_, e := ctx.Write([]byte(err.Error()))
+	// 			if e != nil {
+	// 				log.Errorf("err:%v", e)
+	// 			}
+	// 		}
+	// 	},
+	// }
+
+	log.Info("start")
 	_ = s1.ListenAndServe(":8080")
-	_ = s2.ListenAndServe(":8080")
+	// _ = s2.ListenAndServe(":8080")
 }

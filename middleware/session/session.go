@@ -6,7 +6,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/darabuchi/log"
 	"github.com/nats-io/nuid"
-	"github.com/xihui-forever/goon/ctx"
+	"github.com/xihui-forever/goon"
 	"github.com/xihui-forever/goon/middleware/storage"
 	"github.com/xihui-forever/goon/middleware/storage/memory"
 )
@@ -106,12 +106,12 @@ type Option[M any] struct {
 	// 过期时间，如果不存在，则使用默认的过期时间，time.Hour
 	Expiration time.Duration `json:"expiration,omitempty"`
 
-	NeedSkip  func(ctx *ctx.Ctx) bool             `json:"need_skip,omitempty"`
-	OnError   func(ctx *ctx.Ctx, err error) error `json:"on_error,omitempty"`
-	OnSuccess func(ctx *ctx.Ctx, obj M) error     `json:"on_success,omitempty"`
+	NeedSkip  func(ctx *goon.Ctx) bool             `json:"need_skip,omitempty"`
+	OnError   func(ctx *goon.Ctx, err error) error `json:"on_error,omitempty"`
+	OnSuccess func(ctx *goon.Ctx, obj M) error     `json:"on_success,omitempty"`
 }
 
-func Handler[M any](opt Option[M]) func(ctx *ctx.Ctx) error {
+func Handler[M any](opt Option[M]) func(ctx *goon.Ctx) error {
 	if opt.Session == nil {
 		opt.Session = def
 	}
@@ -120,7 +120,7 @@ func Handler[M any](opt Option[M]) func(ctx *ctx.Ctx) error {
 		opt.Header = "X-Goon-Session"
 	}
 
-	return func(ctx *ctx.Ctx) error {
+	return func(ctx *goon.Ctx) error {
 		if opt.NeedSkip != nil && opt.NeedSkip(ctx) {
 			log.Debugf("skip check session")
 			return nil

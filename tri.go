@@ -1,4 +1,4 @@
-package handler
+package goon
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 type (
 	trieNode struct {
 		char     string
-		itemSet  []*Item
+		itemSet  []*Logic
 		isEnding bool
 		children map[rune]*trieNode
 	}
@@ -26,13 +26,13 @@ func NewTrie() *Trie {
 func NewTrieNode(char string) *trieNode {
 	return &trieNode{
 		char:     char,
-		itemSet:  []*Item{},
+		itemSet:  []*Logic{},
 		isEnding: false,
 		children: make(map[rune]*trieNode),
 	}
 }
 
-func (t *Trie) Insert(word string, item *Item) error {
+func (t *Trie) Insert(word string, item *Logic) error {
 	node := t.root
 	word = strings.TrimSuffix(word, "/") + "/"
 	for _, code := range word {
@@ -44,9 +44,9 @@ func (t *Trie) Insert(word string, item *Item) error {
 		node = value
 	}
 
-	if item.method != PreUse && item.method != PostUse {
+	if item.Method() != PreUse && item.Method() != PostUse {
 		for _, value := range node.itemSet {
-			if value.method == item.method {
+			if value.Method() == item.Method() {
 				panic("logic already exists")
 			}
 		}
@@ -57,10 +57,10 @@ func (t *Trie) Insert(word string, item *Item) error {
 	return nil
 }
 
-func (t *Trie) Find(method Method, word string) ([]*Item, error) {
+func (t *Trie) Find(method Method, word string) ([]*Logic, error) {
 	node := t.root
 	word = strings.TrimSuffix(word, "/") + "/"
-	var itemList []*Item
+	var itemList []*Logic
 	for index, code := range word {
 		value, ok := node.children[code]
 		if !ok {
@@ -68,7 +68,7 @@ func (t *Trie) Find(method Method, word string) ([]*Item, error) {
 		}
 		if value.char == "/" {
 			for _, value := range value.itemSet {
-				switch value.method {
+				switch value.Method() {
 				case PreUse, PostUse:
 					itemList = append(itemList, value)
 				case method:
@@ -86,7 +86,7 @@ END:
 	if len(itemList) == 0 {
 		return nil, errors.New("path is not unRegistered")
 	}
-	if itemList[len(itemList)-1].method != method {
+	if itemList[len(itemList)-1].Method() != method {
 		return nil, errors.New("method is not unRegistered")
 	}
 

@@ -1,11 +1,11 @@
-package ctx
+package goon
 
 func (p *Ctx) GetReqHeader(key string) string {
 	if p == nil {
 		return ""
 	}
 
-	return string(p.request.Header.Peek(key))
+	return string(p.context.Request.Header.Peek(key))
 }
 
 func (p *Ctx) GetResHeader(key string) string {
@@ -13,7 +13,7 @@ func (p *Ctx) GetResHeader(key string) string {
 		return ""
 	}
 
-	return string(p.response.Header.Peek(key))
+	return string(p.context.Response.Header.Peek(key))
 }
 
 func (p *Ctx) SetReqHeader(key string, value string) {
@@ -21,7 +21,7 @@ func (p *Ctx) SetReqHeader(key string, value string) {
 		return
 	}
 
-	p.request.Header.Set(key, value)
+	p.context.Request.Header.Set(key, value)
 }
 
 func (p *Ctx) SetResHeader(key string, value string) {
@@ -29,7 +29,7 @@ func (p *Ctx) SetResHeader(key string, value string) {
 		return
 	}
 
-	p.response.Header.Set(key, value)
+	p.context.Response.Header.Set(key, value)
 }
 
 func (p *Ctx) GetReqHeaderAll() map[string]string {
@@ -38,7 +38,7 @@ func (p *Ctx) GetReqHeaderAll() map[string]string {
 	}
 
 	m := map[string]string{}
-	p.request.Header.VisitAll(func(key, value []byte) {
+	p.context.Request.Header.VisitAll(func(key, value []byte) {
 		m[string(key)] = string(value)
 	})
 
@@ -51,17 +51,9 @@ func (p *Ctx) GetResHeaderAll() map[string]string {
 	}
 
 	m := map[string]string{}
-	p.response.Header.VisitAll(func(key, value []byte) {
+	p.context.Response.Header.VisitAll(func(key, value []byte) {
 		m[string(key)] = string(value)
 	})
 
 	return m
-}
-
-func (p *Ctx) GetSid() string {
-	if p == nil {
-		return ""
-	}
-
-	return string(p.request.Header.Peek("X-Session-Id"))
 }

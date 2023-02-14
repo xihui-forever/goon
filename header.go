@@ -1,4 +1,4 @@
-package handler
+package goon
 
 const (
 	TransferEncoding = "Transfer-Encoding"

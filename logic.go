@@ -1,22 +1,21 @@
-package handler
+package goon
 
 import (
 	"encoding/json"
 	"reflect"
 
 	"github.com/darabuchi/log"
-	"github.com/xihui-forever/goon/ctx"
 )
 
-type Item struct {
+type Logic struct {
 	logic    reflect.Value
 	reqType  reflect.Type
 	respType reflect.Type
 	method   Method
 }
 
-func NewItem(method Method, logic any) *Item {
-	item := &Item{
+func NewLogic(method Method, logic any) *Logic {
+	item := &Logic{
 		logic:  reflect.ValueOf(logic),
 		method: method,
 	}
@@ -99,7 +98,11 @@ func NewItem(method Method, logic any) *Item {
 	return item
 }
 
-func (p *Item) TransferChrunked(ctx *ctx.Ctx) error {
+func (p *Logic) Method() Method {
+	return p.method
+}
+
+func (p *Logic) TransferChrunked(ctx *Ctx) error {
 	in := []reflect.Value{
 		// 第一个入参是固定的
 		reflect.ValueOf(ctx),
@@ -150,7 +153,7 @@ func (p *Item) TransferChrunked(ctx *ctx.Ctx) error {
 	return nil
 }
 
-func (p *Item) TransferOneOff(ctx *ctx.Ctx) ([]byte, error) {
+func (p *Logic) Transfer(ctx *Ctx) ([]byte, error) {
 	in := []reflect.Value{
 		// 第一个入参是固定的
 		reflect.ValueOf(ctx),
@@ -197,4 +200,45 @@ func (p *Item) TransferOneOff(ctx *ctx.Ctx) ([]byte, error) {
 	}
 
 	return resp, nil
+}
+
+func (p *Logic) Handler(ctx *Ctx) error {
+	in := []reflect.Value{
+		// 第一个入参是固定的
+		reflect.ValueOf(ctx),
+	}
+
+	// 如果存在第二个入参
+	if p.reqType != nil {
+		req := reflect.New(p.reqType)
+		err := ctx.ParseBody(req.Interface())
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return err
+		}
+
+		in = append(in, req)
+	}
+
+	// 调用处理方法
+	out := p.logic.Call(in)
+
+	// 只有一个返回值的
+	if p.respType == nil {
+		if out[0].Interface() != nil {
+			return out[0].Interface().(error)
+		}
+		return nil
+	}
+
+	// 有两个返回值的
+	if out[1].Interface() != nil {
+		return out[1].Interface().(error)
+	}
+
+	if out[0].IsValid() {
+		return ctx.Json(out[0].Interface())
+	}
+
+	return ctx.Send([]byte("{}"))
 }
