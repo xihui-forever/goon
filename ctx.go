@@ -12,26 +12,18 @@ import (
 type Ctx struct {
 	context *fasthttp.RequestCtx
 
-	body       []byte
-	method     Method
-	path       string
-	createdAt  time.Time
-	isChuncked bool
+	createdAt time.Time
 
 	handlerIdx int
 	handlers   []func(ctx *Ctx) error
+	cache      *Cache
 }
 
 func NewCtx(context *fasthttp.RequestCtx) *Ctx {
 	p := &Ctx{
 		createdAt: time.Now().Truncate(time.Second),
-
-		context: context,
-
-		body:       context.Request.Body(),
-		method:     Method(context.Request.Header.Method()),
-		path:       context.Request.URI().String(),
-		isChuncked: false,
+		context:   context,
+		cache:     NewCache(),
 	}
 
 	return p
@@ -42,19 +34,23 @@ func (p *Ctx) Context() *fasthttp.RequestCtx {
 }
 
 func (p *Ctx) Method() Method {
-	return p.method
+	return Method(p.context.Request.Header.Method())
 }
 
 func (p *Ctx) Path() string {
-	return p.path
+	return p.context.Request.URI().String()
 }
 
 func (p *Ctx) CreatedAt() time.Time {
 	return p.createdAt
 }
 
+func (p *Ctx) Close() {
+	p.cache.Close()
+}
+
 func (p *Ctx) Body() []byte {
-	return p.body
+	return p.context.Request.Body()
 }
 
 func (p *Ctx) ParseBody(obj any) error {
@@ -89,7 +85,6 @@ func (p *Ctx) SetHeader(key string, value string) {
 		switch value {
 		case "chunked":
 			// TODO ctx添加标记
-			p.isChuncked = true
 		}
 	}
 }

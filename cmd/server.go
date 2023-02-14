@@ -33,7 +33,7 @@ type (
 )
 
 func main() {
-	mux := goon.NewHandler()
+	mux := goon.New()
 
 	mux.PreUse("/User", func(ctx *goon.Ctx) error {
 		return nil

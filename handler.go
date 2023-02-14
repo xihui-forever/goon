@@ -10,14 +10,14 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Handler struct {
+type App struct {
 	trie *Trie
 
 	OnError func(ctx *Ctx, err error)
 }
 
-func NewHandler() *Handler {
-	p := &Handler{
+func New() *App {
+	p := &App{
 		trie: NewTrie(),
 	}
 
@@ -36,8 +36,9 @@ func NewHandler() *Handler {
 // 	return nil
 // }
 
-func (p *Handler) Call(context *fasthttp.RequestCtx) error {
+func (p *App) Call(context *fasthttp.RequestCtx) error {
 	c := NewCtx(context)
+	defer c.Close()
 
 	defer func() {
 		// 接收panic的信息，防止某一个请求导致程序崩溃
@@ -75,38 +76,38 @@ func (p *Handler) Call(context *fasthttp.RequestCtx) error {
 	return c.Next()
 }
 
-func (p *Handler) Register(method Method, path string, logic interface{}) {
+func (p *App) Register(method Method, path string, logic interface{}) {
 	err := p.trie.Insert(path, NewLogic(method, logic))
 	if err != nil {
 		panic(fmt.Errorf("insert err:%v", err))
 	}
 }
 
-func (p *Handler) Get(path string, logic any) {
+func (p *App) Get(path string, logic any) {
 	p.Register(Get, path, logic)
 }
 
-func (p *Handler) Post(path string, logic any) {
+func (p *App) Post(path string, logic any) {
 	p.Register(Post, path, logic)
 }
 
-func (p *Handler) Head(path string, logic any) {
+func (p *App) Head(path string, logic any) {
 	p.Register(Head, path, logic)
 }
 
-func (p *Handler) Use(path string, logic any) {
+func (p *App) Use(path string, logic any) {
 	p.Register(Use, path, logic)
 }
 
-func (p *Handler) PreUse(path string, logic any) {
+func (p *App) PreUse(path string, logic any) {
 	p.Register(PreUse, path, logic)
 }
 
-func (p *Handler) PostUse(path string, logic any) {
+func (p *App) PostUse(path string, logic any) {
 	p.Register(PostUse, path, logic)
 }
 
-func (p *Handler) onError(ctx *Ctx, err error) {
+func (p *App) onError(ctx *Ctx, err error) {
 	if p.OnError != nil {
 		p.onError(ctx, err)
 	}
