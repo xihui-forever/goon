@@ -48,6 +48,10 @@ func Handler(opt Option) goon.Handler {
 		opt.LimiterMiddleware = FixedWindow
 	}
 
+	if opt.Storage == mem.NewMem(true) {
+		opt.LimiterMiddleware = SlideWindow
+	}
+
 	pool := sync.Pool{
 		New: func() interface{} {
 			return &Config{
