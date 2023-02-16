@@ -7,7 +7,7 @@ import (
 type Storage interface {
 	Inc(key string) (int64, error)
 	Dec(key string) (int64, error)
-
+	DecBy(key string, value int64) (int64, error)
 	Expire(key string, timeout time.Duration) error
 }
 

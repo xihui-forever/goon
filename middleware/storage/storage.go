@@ -11,7 +11,7 @@ type Storage interface {
 	Expire(key string, timeout time.Duration) error
 
 	Inc(key string) (int64, error)
-	IncBy(key string) (int64, error)
+	IncBy(key string, value int64) (int64, error)
 	Dec(key string) (int64, error)
 	DecBy(key string, value int64) (int64, error)
 

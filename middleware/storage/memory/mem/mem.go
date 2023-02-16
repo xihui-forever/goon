@@ -17,8 +17,7 @@ type Mem struct {
 type ItemCount struct {
 	lock sync.RWMutex
 
-	startAt  time.Time
-	count    []int64
+	itemList []interface{}
 	value    string
 	expireAt time.Time
 }
@@ -29,14 +28,23 @@ func (p *ItemCount) GetValue() string {
 	return p.value
 }
 
-func (p *ItemCount) SetValue() {
+func (p *ItemCount) SetValue(value int64) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	var val int64
-	for _, v := range p.count {
-		val = val + v
-	}
-	p.value = utils.ToString(val)
+
+	p.value = utils.ToString(value)
+}
+
+func (p *ItemCount) GetItemList() []interface{} {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.itemList
+}
+
+func (p *ItemCount) SetItemList(itemList []interface{}) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	p.itemList = itemList
 }
 
 func (p *ItemCount) GetExpireAt() time.Time {
@@ -54,37 +62,48 @@ func (p *ItemCount) SetExpireAt(expireAt time.Time) {
 func (p *ItemCount) SetExpire(expire time.Duration) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	p.startAt = time.Now()
-	p.expireAt = p.startAt.Add(expire)
+	p.expireAt = time.Now().Add(expire)
+}
+
+func (p *ItemCount) GetValid(t time.Duration) int64 {
+	for _, item := range p.itemList {
+		if time.Now().Sub(item.(time.Time)) > t {
+			p.DecBy(utils.ToInt64(item))
+		}
+	}
+	return int64(len(p.GetValue()))
 }
 
 func (p *ItemCount) Expire() bool {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
-	if !p.expireAt.IsZero() && p.expireAt.Equal(time.Now()) {
-		p.startAt = p.startAt.Add(10 * time.Second)
-		p.expireAt = time.Now().Add(10 * time.Second)
+	if !p.expireAt.IsZero() && p.expireAt.Before(time.Now()) {
 		return true
 	}
 	return false
 }
 
-func (p *ItemCount) IncBy(c int64, k int64) int64 {
+func (p *ItemCount) IncBy(c int64) int64 {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.count[k] = p.count[k] + c
-	p.SetValue()
+	itemList := append(p.itemList, c)
+	p.SetItemList(itemList)
 	return utils.ToInt64(p.GetValue())
 }
 
-func (p *ItemCount) DecBy(c int64, k int64) int64 {
+func (p *ItemCount) DecBy(value int64) int64 {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.count[k] = p.count[k] - c
-	p.SetValue()
-	return utils.ToInt64(p.GetValue())
+	var itemList []interface{}
+	for k, v := range p.itemList {
+		if utils.ToInt64(v)-value >= value {
+			itemList = append(p.itemList[:k], p.itemList[k+1:]...)
+		}
+	}
+	p.SetItemList(itemList)
+	return utils.ToInt64(len(p.itemList))
 }
 
 func (p *Mem) Clean(logic func(int64) bool) {
@@ -167,18 +186,11 @@ func (p *Mem) Get(key string) (string, error) {
 		return "", storage.ErrKeyNotExist
 	}
 
-	if item.Expire() {
-		p.lock.Lock()
-		p.data[key].count = append(p.data[key].count[:1], p.data[key].count[2:]...)
-		p.data[key].SetValue()
-		p.lock.Unlock()
-	}
-
 	return item.GetValue(), nil
 }
 
 func (p *Mem) Inc(key string) (int64, error) {
-	return p.IncBy(key, 1)
+	return p.IncBy(key, time.Now().Unix())
 }
 
 func (p *Mem) IncBy(key string, value int64) (int64, error) {
@@ -208,21 +220,11 @@ func (p *Mem) IncBy(key string, value int64) (int64, error) {
 		}
 	}
 
-	if item.Expire() {
-		p.lock.Lock()
-		p.data[key].count = append(p.data[key].count[:1], p.data[key].count[2:]...)
-		p.data[key].SetValue()
-		p.lock.Unlock()
-	}
-
-	d := time.Now().Sub(item.startAt)/(10*time.Second) + 1
-	k := utils.ToInt64(d)
-
-	return item.IncBy(value, k), nil
+	return item.IncBy(value), nil
 }
 
 func (p *Mem) Dec(key string) (int64, error) {
-	return p.DecBy(key, 1)
+	return p.DecBy(key, time.Now().Unix())
 }
 
 func (p *Mem) DecBy(key string, value int64) (int64, error) {
@@ -252,17 +254,7 @@ func (p *Mem) DecBy(key string, value int64) (int64, error) {
 		}
 	}
 
-	if item.Expire() {
-		p.lock.Lock()
-		p.data[key].count = append(p.data[key].count[:1], p.data[key].count[2:]...)
-		p.data[key].SetValue()
-		p.lock.Unlock()
-	}
-
-	d := time.Now().Sub(item.startAt)/(10*time.Second) + 1
-	k := utils.ToInt64(d)
-
-	return item.DecBy(value, k), nil
+	return item.DecBy(value), nil
 }
 
 func (p *Mem) Expire(key string, timeout time.Duration) error {
@@ -275,9 +267,9 @@ func (p *Mem) Expire(key string, timeout time.Duration) error {
 
 	if item.Expire() {
 		p.lock.Lock()
-		p.data[key].count = append(p.data[key].count[:1], p.data[key].count[2:]...)
-		p.data[key].SetValue()
+		delete(p.data, key)
 		p.lock.Unlock()
+		return storage.ErrKeyNotExist
 	}
 
 	item.SetExpire(timeout)
