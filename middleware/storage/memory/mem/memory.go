@@ -76,10 +76,8 @@ func (p *Item) RemoveItem(members interface{}) {
 	defer p.lock.Unlock()
 
 	var items []string
-	for key, value := range p.itemList {
-		if value == utils.ToString(members) {
-			items = append(p.itemList[:key], p.itemList[key+1:]...)
-		}
+	if members == p.itemList[0] {
+		items = append(p.itemList[:0], p.itemList[1:]...)
 	}
 	p.SetItemList(items)
 }
@@ -118,6 +116,8 @@ func (p *Item) DecBy(c int64) int64 {
 }
 
 func (p *Item) Len() int64 {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	return int64(len(p.itemList))
 }
 
@@ -346,7 +346,9 @@ func (p *Memory) ZAdd(key string, members ...interface{}) error {
 		p.lock.Unlock()
 		return storage.ErrKeyNotExist
 	}
+
 	item.AddItem(members)
+
 	return nil
 }
 
