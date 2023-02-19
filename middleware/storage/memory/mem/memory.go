@@ -23,18 +23,18 @@ type Memory struct {
 type Item struct {
 	lock sync.RWMutex
 
-	itemList []interface{}
+	itemList []string
 	value    string
 	expireAt time.Time
 }
 
-func (p *Item) GetItemList() []interface{} {
+func (p *Item) GetItemList() []string {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 	return p.itemList
 }
 
-func (p *Item) SetItemList(itemList []interface{}) {
+func (p *Item) SetItemList(itemList []string) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.itemList = itemList
@@ -64,10 +64,21 @@ func (p *Item) SetExpireAt(expireAt time.Time) {
 	p.expireAt = expireAt
 }
 
-func (p *Item) AddItem(value int64) {
+func (p *Item) AddItem(members interface{}) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	items := append(p.itemList, value)
+	items := append(p.itemList, utils.ToString(members))
+	p.SetItemList(items)
+}
+
+func (p *Item) RemoveItem(members interface{}) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	var items []string
+	if members == p.itemList[0] {
+		items = append(p.itemList[:0], p.itemList[1:]...)
+	}
 	p.SetItemList(items)
 }
 
@@ -105,6 +116,8 @@ func (p *Item) DecBy(c int64) int64 {
 }
 
 func (p *Item) Len() int64 {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
 	return int64(len(p.itemList))
 }
 
@@ -300,7 +313,7 @@ func (p *Memory) Expire(key string, timeout time.Duration) error {
 	return nil
 }
 
-func (p *Memory) AddItem(key string, value int64) error {
+func (p *Memory) ZAdd(key string, members ...interface{}) error {
 	defer func() {
 		if p.needClean() {
 			p.Clean(func(i int64) bool {
@@ -333,15 +346,17 @@ func (p *Memory) AddItem(key string, value int64) error {
 		p.lock.Unlock()
 		return storage.ErrKeyNotExist
 	}
-	item.AddItem(value)
+
+	item.AddItem(members)
+
 	return nil
 }
 
-func (p *Memory) GetNotValid(key string, timeout time.Duration) (int64, error) {
+func (p *Memory) ZRange(key string, start, stop int64) ([]string, error) {
 	p.lock.Lock()
 	item, ok := p.data[key]
 	if !ok {
-		return 0, storage.ErrKeyNotExist
+		return nil, storage.ErrKeyNotExist
 	}
 	p.lock.Unlock()
 
@@ -349,18 +364,19 @@ func (p *Memory) GetNotValid(key string, timeout time.Duration) (int64, error) {
 		p.lock.Lock()
 		delete(p.data, key)
 		p.lock.Unlock()
-		return 0, storage.ErrKeyNotExist
+		return nil, storage.ErrKeyNotExist
 	}
 
+	var items []string
 	for key, value := range item.itemList {
-		if time.Now().Sub(value.(time.Time)) <= timeout {
-			return int64(key), nil
+		if int64(key) >= start && int64(key) < stop {
+			items = append(items, value)
 		}
 	}
-	return 0, nil
+	return items, nil
 }
 
-func (p *Memory) DeleteItem(key string, value int64) error {
+func (p *Memory) ZRem(key string, members ...interface{}) error {
 	p.lock.Lock()
 	item, ok := p.data[key]
 	if !ok {
@@ -375,12 +391,11 @@ func (p *Memory) DeleteItem(key string, value int64) error {
 		return storage.ErrKeyNotExist
 	}
 
-	items := append(item.itemList[:value-1], item.itemList[value:]...)
-	item.SetItemList(items)
+	item.RemoveItem(members)
 	return nil
 }
 
-func (p *Memory) LenItemList(key string) (int64, error) {
+func (p *Memory) ZLen(key string) (int64, error) {
 	p.lock.Lock()
 	item, ok := p.data[key]
 	if !ok {

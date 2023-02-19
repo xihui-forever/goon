@@ -2,9 +2,10 @@ package limit
 
 import (
 	"errors"
-	"github.com/xihui-forever/goon/middleware/storage/memory/mem"
 	"sync"
 	"time"
+
+	"github.com/xihui-forever/goon/middleware/storage/memory/mem"
 
 	"github.com/xihui-forever/goon"
 )
@@ -46,10 +47,6 @@ func Handler(opt Option) goon.Handler {
 
 	if opt.LimiterMiddleware == nil {
 		opt.LimiterMiddleware = FixedWindow
-	}
-
-	if opt.Storage == mem.NewMem(true) {
-		opt.LimiterMiddleware = SlideWindow
 	}
 
 	pool := sync.Pool{
