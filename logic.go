@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"github.com/bytedance/sonic"
 	"github.com/darabuchi/log"
 )
 
@@ -148,7 +149,7 @@ func (p *Logic) TransferChrunked(ctx *Ctx) error {
 		resp = []byte("{}")
 	}
 
-	ctx.Send(resp)
+	ctx.Send(string(resp))
 
 	return nil
 }
@@ -187,19 +188,21 @@ func (p *Logic) Transfer(ctx *Ctx) ([]byte, error) {
 		return nil, out[1].Interface().(error)
 	}
 
-	var resp []byte
+	var resp string
 	var err error
 	if out[0].IsValid() {
-		resp, err = json.Marshal(out[0].Interface())
+		resp, err = sonic.MarshalString(out[0].Interface())
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return nil, err
 		}
 	} else {
-		resp = []byte("{}")
+		resp = ("{}")
 	}
 
-	return resp, nil
+	ctx.Send(resp)
+
+	return []byte(resp), nil
 }
 
 func (p *Logic) Handler(ctx *Ctx) error {
@@ -237,8 +240,12 @@ func (p *Logic) Handler(ctx *Ctx) error {
 	}
 
 	if out[0].IsValid() {
-		return ctx.Json(out[0].Interface())
+		if ctx.o.PermHeader == "" {
+			return ctx.Json(out[0].Interface())
+		}
+
+		return ctx.JsonWithPerm(ctx.GetReqHeader(ctx.o.PermHeader), out[0].Interface())
 	}
 
-	return ctx.Send([]byte("{}"))
+	return ctx.Send("{}")
 }
