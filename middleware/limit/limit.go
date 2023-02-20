@@ -2,9 +2,10 @@ package limit
 
 import (
 	"errors"
-	"github.com/xihui-forever/goon/middleware/storage/memory/mem"
 	"sync"
 	"time"
+
+	"github.com/xihui-forever/goon/middleware/storage/memory/mem"
 
 	"github.com/xihui-forever/goon"
 )

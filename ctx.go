@@ -14,13 +14,18 @@ type Ctx struct {
 
 	createdAt time.Time
 
+	respBody *string // 返回的body
+	o        *Option
+
 	handlerIdx int
 	handlers   []func(ctx *Ctx) error
 	cache      *Cache
 }
 
-func NewCtx(context *fasthttp.RequestCtx) *Ctx {
+func NewCtx(context *fasthttp.RequestCtx, o *Option) *Ctx {
 	p := &Ctx{
+		o: o,
+
 		createdAt: time.Now().Truncate(time.Second),
 		context:   context,
 		cache:     NewCache(),
@@ -47,6 +52,10 @@ func (p *Ctx) CreatedAt() time.Time {
 
 func (p *Ctx) Close() {
 	p.cache.Close()
+
+	if p.respBody != nil {
+		p.Context().Response.AppendBodyString(*p.respBody)
+	}
 }
 
 func (p *Ctx) RealIp() string {

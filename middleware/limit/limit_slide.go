@@ -1,9 +1,10 @@
 package limit
 
 import (
+	"time"
+
 	"github.com/darabuchi/log"
 	"github.com/darabuchi/utils"
-	"time"
 )
 
 func SlideWindow(cfg Config) bool {
@@ -38,3 +39,11 @@ func SlideWindow(cfg Config) bool {
 
 	return val > cfg.Max
 }
+
+/*
+9
+
+1. add -> get -> rm [10] -> len [10]
+
+2. add -> get -> rm [10] -> len [10]
+*/

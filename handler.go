@@ -12,15 +12,30 @@ import (
 
 type Handler func(ctx *Ctx) error
 
+type Option struct {
+	// 对返回值的字段权限自动移除的 header
+	PermHeader string `json:"perm_header,omitempty"`
+}
+
 type App struct {
 	trie *Trie
 
 	OnError func(ctx *Ctx, err error)
+
+	o *Option
 }
 
-func New() *App {
+func New(opt ...*Option) *App {
+	var o *Option
+	if len(opt) > 0 {
+		o = opt[0]
+	} else {
+		o = &Option{}
+	}
+
 	p := &App{
 		trie: NewTrie(),
+		o:    o,
 	}
 
 	return p
@@ -39,7 +54,7 @@ func New() *App {
 // }
 
 func (p *App) Call(context *fasthttp.RequestCtx) error {
-	c := NewCtx(context)
+	c := NewCtx(context, p.o)
 	defer c.Close()
 
 	defer func() {
