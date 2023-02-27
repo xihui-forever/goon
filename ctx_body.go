@@ -81,21 +81,36 @@ func (p *Ctx) JsonWithPerm(permStr string, res any) error {
 				continue
 			}
 
-			tagPerms := strings.Split(tagPerm, "|")
+			wrTags := strings.Split(tagPerm, ",")
 
-			if pie.Any(tagPerms, func(perm string) bool {
-				return pie.Contains(perms, perm)
-			}) {
-
-				switch it.Type.Kind() {
-				case reflect.Ptr, reflect.Struct:
-					iv.Set(logic(iv.Interface()))
+			for _, tag := range wrTags {
+				if !strings.HasPrefix(tag, "read:") {
+					continue
 				}
 
-				continue
-			}
+				if tag == "read:*" {
+					break
+				} else if tag == "read:-" {
+					iv.Set(reflect.Zero(iv.Type()))
+					break
+				}
 
-			iv.Set(reflect.Zero(iv.Type()))
+				tagPerms := strings.Split(strings.TrimPrefix(tag, "read:"), "|")
+				if pie.Any(tagPerms, func(perm string) bool {
+					return pie.Contains(perms, perm)
+				}) {
+
+					switch it.Type.Kind() {
+					case reflect.Ptr, reflect.Struct:
+						iv.Set(logic(iv.Interface()))
+					}
+
+					break
+				}
+
+				iv.Set(reflect.Zero(iv.Type()))
+				break
+			}
 		}
 
 		return v
