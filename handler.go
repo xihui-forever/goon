@@ -112,6 +112,18 @@ func (p *App) Head(path string, logic any) {
 	p.Register(Head, path, logic)
 }
 
+func (p *App) Put(path string, logic any) {
+	p.Register(Put, path, logic)
+}
+
+func (p *App) Option(path string, logic any) {
+	p.Register(OPTION, path, logic)
+}
+
+func (p *App) Delete(path string, logic any) {
+	p.Register(Delete, path, logic)
+}
+
 func (p *App) Use(path string, logic any) {
 	p.Register(Use, path, logic)
 }
@@ -128,4 +140,18 @@ func (p *App) onError(ctx *Ctx, err error) {
 	if p.OnError != nil {
 		p.onError(ctx, err)
 	}
+}
+
+func (p *App) ListenAndServe(addr string) error {
+	return fasthttp.ListenAndServe(addr, func(ctx *fasthttp.RequestCtx) {
+		ctx.Response.Header.SetStatusCode(fasthttp.StatusOK)
+		err := p.Call(ctx)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			_, e := ctx.Write([]byte(err.Error()))
+			if e != nil {
+				log.Errorf("err:%v", e)
+			}
+		}
+	})
 }
