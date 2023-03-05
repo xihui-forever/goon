@@ -3,9 +3,12 @@ package goon
 type Method string
 
 const (
-	Get  Method = "GET"
-	Post Method = "POST"
-	Head Method = "HEAD"
+	Get    Method = "GET"
+	Post   Method = "POST"
+	Head   Method = "HEAD"
+	Put    Method = "PUT"
+	OPTION Method = "OPTION"
+	Delete Method = "DELETE"
 
 	Use     Method = "Use"     // 拦截器
 	PreUse  Method = "PreUse"  // 前置拦截器
