@@ -39,11 +39,3 @@ func SlideWindow(cfg Config) bool {
 
 	return val > cfg.Max
 }
-
-/*
-9
-
-1. add -> get -> rm [10] -> len [10]
-
-2. add -> get -> rm [10] -> len [10]
-*/

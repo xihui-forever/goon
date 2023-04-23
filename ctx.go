@@ -43,7 +43,7 @@ func (p *Ctx) Method() Method {
 }
 
 func (p *Ctx) Path() string {
-	return p.context.Request.URI().String()
+	return string(p.context.Path())
 }
 
 func (p *Ctx) CreatedAt() time.Time {

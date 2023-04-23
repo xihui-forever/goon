@@ -66,6 +66,20 @@ func (s *Session) GetSession(sid string) (string, error) {
 	return data, nil
 }
 
+func (s *Session) GetJson(sid string) (string, error) {
+	data, err := s.storage.Get(sid)
+	if err != nil {
+		if err == storage.ErrKeyNotExist {
+			return "", ErrSessionNotExist
+		}
+
+		log.Errorf("err:%v", err)
+		return "", err
+	}
+
+	return data, nil
+}
+
 func (s *Session) Expire(sid string, t time.Duration) error {
 	err := s.storage.Expire(sid, t)
 	if err != nil {

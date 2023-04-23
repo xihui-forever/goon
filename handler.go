@@ -75,7 +75,7 @@ func (p *App) Call(context *fasthttp.RequestCtx) error {
 
 	log.Info("request ", b.String())
 	defer func() {
-		b.WriteString("used:")
+		b.WriteString(" used:")
 		b.WriteString(time.Since(c.CreatedAt()).String())
 		log.Info("response ", b.String())
 	}()
@@ -94,6 +94,7 @@ func (p *App) Call(context *fasthttp.RequestCtx) error {
 }
 
 func (p *App) Register(method Method, path string, logic interface{}) {
+	log.Infof("register %s %s", method, path)
 	err := p.trie.Insert(path, NewLogic(method, logic))
 	if err != nil {
 		panic(fmt.Errorf("insert err:%v", err))

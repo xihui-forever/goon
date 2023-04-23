@@ -86,9 +86,9 @@ END:
 	if len(itemList) == 0 {
 		return nil, errors.New("path is not unRegistered")
 	}
-	if itemList[len(itemList)-1].Method() != method {
+	/*if itemList[len(itemList)-1].Method() != method {
 		return nil, errors.New("method is not unRegistered")
-	}
+	}*/
 
 	return itemList, nil
 }
