@@ -56,12 +56,21 @@ func (p *Ctx) Json(res any) error {
 }
 
 func (p *Ctx) JsonWithPerm(permStr string, res any) error {
-	perms := strings.Split(permStr, "|")
+	return p.Json(res)
+
+	perms := pie.Filter(strings.Split(permStr, "|"), func(s string) bool {
+		return s != ""
+	})
 
 	var logic func(res any) reflect.Value
 	logic = func(res any) reflect.Value {
 		v := reflect.ValueOf(res)
-		t := reflect.TypeOf(res)
+
+		for v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+
+		t := v.Type()
 
 		for i := 0; i < v.NumField(); i++ {
 			iv := v.Field(i)
@@ -74,7 +83,7 @@ func (p *Ctx) JsonWithPerm(permStr string, res any) error {
 			tagPerm := it.Tag.Get("perm")
 			if tagPerm == "" || tagPerm == "-" {
 				switch it.Type.Kind() {
-				case reflect.Ptr, reflect.Struct:
+				case reflect.Ptr, reflect.Struct, reflect.Interface:
 					iv.Set(logic(iv.Interface()))
 				}
 
@@ -82,7 +91,6 @@ func (p *Ctx) JsonWithPerm(permStr string, res any) error {
 			}
 
 			wrTags := strings.Split(tagPerm, ",")
-
 			for _, tag := range wrTags {
 				if !strings.HasPrefix(tag, "read:") {
 					continue
@@ -95,17 +103,19 @@ func (p *Ctx) JsonWithPerm(permStr string, res any) error {
 					break
 				}
 
-				tagPerms := strings.Split(strings.TrimPrefix(tag, "read:"), "|")
-				if pie.Any(tagPerms, func(perm string) bool {
-					return pie.Contains(perms, perm)
-				}) {
+				if len(perms) > 0 {
+					tagPerms := strings.Split(strings.TrimPrefix(tag, "read:"), "|")
+					if pie.Any(tagPerms, func(perm string) bool {
+						return pie.Contains(perms, perm)
+					}) {
 
-					switch it.Type.Kind() {
-					case reflect.Ptr, reflect.Struct:
-						iv.Set(logic(iv.Interface()))
+						switch it.Type.Kind() {
+						case reflect.Ptr, reflect.Struct:
+							iv.Set(logic(iv.Interface()))
+						}
+
+						break
 					}
-
-					break
 				}
 
 				iv.Set(reflect.Zero(iv.Type()))

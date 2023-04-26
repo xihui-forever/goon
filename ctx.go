@@ -1,6 +1,8 @@
 package goon
 
 import (
+	"bytes"
+	"github.com/darabuchi/log"
 	"net"
 	"net/netip"
 	"strings"
@@ -15,14 +17,14 @@ type Ctx struct {
 	createdAt time.Time
 
 	respBody *string // 返回的body
-	o        *Option
+	o        *option
 
 	handlerIdx int
 	handlers   []func(ctx *Ctx) error
 	cache      *Cache
 }
 
-func NewCtx(context *fasthttp.RequestCtx, o *Option) *Ctx {
+func NewCtx(context *fasthttp.RequestCtx, o *option) *Ctx {
 	p := &Ctx{
 		o: o,
 
@@ -30,6 +32,30 @@ func NewCtx(context *fasthttp.RequestCtx, o *Option) *Ctx {
 		context:   context,
 		cache:     NewCache(),
 	}
+
+	var b bytes.Buffer
+	b.WriteString("method:")
+	b.WriteString(string(p.Method()))
+	b.WriteString(" path:")
+	b.WriteString(p.Path())
+
+	b.WriteString(" ")
+	b.WriteString(p.RealIp())
+	b.WriteString(" ")
+
+	b.WriteString(" header:")
+
+	for k, v := range p.GetReqHeaderAll() {
+		b.WriteString(k)
+		b.WriteString(":")
+		b.WriteString(v)
+		b.WriteString(" ")
+	}
+
+	b.WriteString(" req:")
+	b.Write(p.Body())
+
+	log.Info("request ", b.String())
 
 	return p
 }
@@ -53,9 +79,29 @@ func (p *Ctx) CreatedAt() time.Time {
 func (p *Ctx) Close() {
 	p.cache.Close()
 
+	var b bytes.Buffer
+	b.WriteString("method:")
+	b.WriteString(string(p.Method()))
+	b.WriteString(" path:")
+	b.WriteString(p.Path())
+
+	b.WriteString(" ")
+	b.WriteString(p.RealIp())
+	b.WriteString(" ")
+
+	b.WriteString(" req:")
+	b.Write(p.Body())
+
+	b.WriteString(" rsp:")
 	if p.respBody != nil {
+		b.WriteString(*p.respBody)
 		p.Context().Response.AppendBodyString(*p.respBody)
 	}
+
+	b.WriteString(" used:")
+	b.WriteString(time.Since(p.CreatedAt()).String())
+
+	log.Info("response ", b.String())
 }
 
 func (p *Ctx) RealIp() string {
