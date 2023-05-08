@@ -2,6 +2,7 @@ package goon
 
 import (
 	"errors"
+	"github.com/darabuchi/log"
 	"strings"
 )
 
@@ -44,7 +45,7 @@ func (t *Trie) Insert(word string, item *Logic) error {
 		node = value
 	}
 
-	if item.Method() != PreUse && item.Method() != PostUse && item.Method() != Use {
+	if item.Method() != MethodPreUse && item.Method() != MethodPostUse && item.Method() != MethodUse {
 		for _, value := range node.itemSet {
 			if value.Method() == item.Method() {
 				panic("logic already exists")
@@ -64,12 +65,13 @@ func (t *Trie) Find(method Method, word string) ([]*Logic, error) {
 	for index, code := range word {
 		value, ok := node.children[code]
 		if !ok {
-			return nil, errors.New("path is not unRegistered")
+			log.Warn("path is not have children")
+			goto END
 		}
 		if value.char == "/" {
 			for _, value := range value.itemSet {
 				switch value.Method() {
-				case PreUse, PostUse, Use:
+				case MethodPreUse, MethodPostUse, MethodUse:
 					itemList = append(itemList, value)
 				case method:
 					if index == len(word)-1 {

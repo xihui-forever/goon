@@ -14,6 +14,50 @@ type Redis struct {
 	client *xredis.Client
 }
 
+func (r *Redis) Set(key string, value interface{}) error {
+	panic("implement me")
+}
+
+func (r *Redis) Inc(key string) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Redis) IncBy(key string, value int64) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Redis) Dec(key string) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Redis) DecBy(key string, value int64) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Redis) ZAdd(key string, members ...interface{}) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Redis) ZRange(key string, start, stop int64) ([]string, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Redis) ZRem(key string, members ...interface{}) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r *Redis) ZLen(key string) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type RedisConfig struct {
 	Addr     string
 	Password string

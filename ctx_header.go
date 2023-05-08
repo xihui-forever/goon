@@ -1,5 +1,7 @@
 package goon
 
+import "github.com/valyala/fasthttp"
+
 func (p *Ctx) GetReqHeader(key string) string {
 	if p == nil {
 		return ""
@@ -38,11 +40,16 @@ func (p *Ctx) GetReqHeaderAll() map[string]string {
 	}
 
 	m := map[string]string{}
+
 	p.context.Request.Header.VisitAll(func(key, value []byte) {
 		m[string(key)] = string(value)
 	})
 
 	return m
+}
+
+func (p *Ctx) GetReqSourceHeader() fasthttp.RequestHeader {
+	return p.context.Request.Header
 }
 
 func (p *Ctx) GetResHeaderAll() map[string]string {

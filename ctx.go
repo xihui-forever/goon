@@ -1,6 +1,9 @@
 package goon
 
 import (
+	"bytes"
+	"encoding/base64"
+	"github.com/darabuchi/log"
 	"net"
 	"net/netip"
 	"strings"
@@ -15,14 +18,14 @@ type Ctx struct {
 	createdAt time.Time
 
 	respBody *string // 返回的body
-	o        *Option
+	o        *option
 
 	handlerIdx int
 	handlers   []func(ctx *Ctx) error
 	cache      *Cache
 }
 
-func NewCtx(context *fasthttp.RequestCtx, o *Option) *Ctx {
+func NewCtx(context *fasthttp.RequestCtx, o *option) *Ctx {
 	p := &Ctx{
 		o: o,
 
@@ -30,6 +33,40 @@ func NewCtx(context *fasthttp.RequestCtx, o *Option) *Ctx {
 		context:   context,
 		cache:     NewCache(),
 	}
+
+	var b bytes.Buffer
+	b.WriteString("method:")
+	b.WriteString(string(p.Method()))
+	b.WriteString(" path:")
+	b.WriteString(p.Path())
+
+	b.WriteString(" ")
+	b.WriteString(p.RealIp())
+	b.WriteString(" ")
+
+	b.WriteString(" header:")
+
+	for k, v := range p.GetReqHeaderAll() {
+		b.WriteString(k)
+		b.WriteString(":")
+		b.WriteString(v)
+		b.WriteString(" ")
+	}
+
+	b.WriteString(" req:")
+
+	switch p.GetReqHeader("Content-Type") {
+	case "application/x-www-form-urlencoded":
+		b.WriteString(base64.StdEncoding.EncodeToString(p.Body()))
+	default:
+		if len(p.Body()) <= 1024 {
+			b.Write(p.Body())
+		} else {
+			b.Write(p.Body()[:1024])
+		}
+	}
+
+	log.Info("request ", b.String())
 
 	return p
 }
@@ -53,9 +90,41 @@ func (p *Ctx) CreatedAt() time.Time {
 func (p *Ctx) Close() {
 	p.cache.Close()
 
+	var b bytes.Buffer
+	b.WriteString("method:")
+	b.WriteString(string(p.Method()))
+	b.WriteString(" path:")
+	b.WriteString(p.Path())
+
+	b.WriteString(" ")
+	b.WriteString(p.RealIp())
+	b.WriteString(" ")
+
+	b.WriteString(" req:")
+	switch p.GetReqHeader("Content-Type") {
+	case "application/x-www-form-urlencoded":
+		b.WriteString(base64.StdEncoding.EncodeToString(p.Body()))
+	default:
+		b.Write(p.Body())
+	}
+
+	b.WriteString(" rsp:")
 	if p.respBody != nil {
+		switch p.GetResHeader("Content-Type") {
+		case "application/json":
+			b.WriteString(*p.respBody)
+		default:
+			b.WriteString("<bin>")
+			//b.WriteString(base64.StdEncoding.EncodeToString([]byte(*p.respBody)))
+		}
+
 		p.Context().Response.AppendBodyString(*p.respBody)
 	}
+
+	b.WriteString(" used:")
+	b.WriteString(time.Since(p.CreatedAt()).String())
+
+	log.Info("response ", b.String())
 }
 
 func (p *Ctx) RealIp() string {
@@ -155,4 +224,12 @@ func (p *Ctx) RealIp() string {
 	}
 
 	return p.Context().RemoteIP().String()
+}
+
+func (p *Ctx) ContentLen() int {
+	if p.respBody == nil {
+		return 0
+	}
+
+	return len(*p.respBody)
 }
