@@ -2,6 +2,7 @@ package goon
 
 import (
 	"bytes"
+	"encoding/base64"
 	"github.com/darabuchi/log"
 	"net"
 	"net/netip"
@@ -53,7 +54,17 @@ func NewCtx(context *fasthttp.RequestCtx, o *option) *Ctx {
 	}
 
 	b.WriteString(" req:")
-	b.Write(p.Body())
+
+	switch p.GetReqHeader("Content-Type") {
+	case "application/x-www-form-urlencoded":
+		b.WriteString(base64.StdEncoding.EncodeToString(p.Body()))
+	default:
+		if len(p.Body()) <= 1024 {
+			b.Write(p.Body())
+		} else {
+			b.Write(p.Body()[:1024])
+		}
+	}
 
 	log.Info("request ", b.String())
 
@@ -90,11 +101,23 @@ func (p *Ctx) Close() {
 	b.WriteString(" ")
 
 	b.WriteString(" req:")
-	b.Write(p.Body())
+	switch p.GetReqHeader("Content-Type") {
+	case "application/x-www-form-urlencoded":
+		b.WriteString(base64.StdEncoding.EncodeToString(p.Body()))
+	default:
+		b.Write(p.Body())
+	}
 
 	b.WriteString(" rsp:")
 	if p.respBody != nil {
-		b.WriteString(*p.respBody)
+		switch p.GetResHeader("Content-Type") {
+		case "application/json":
+			b.WriteString(*p.respBody)
+		default:
+			b.WriteString("<bin>")
+			//b.WriteString(base64.StdEncoding.EncodeToString([]byte(*p.respBody)))
+		}
+
 		p.Context().Response.AppendBodyString(*p.respBody)
 	}
 
@@ -201,4 +224,12 @@ func (p *Ctx) RealIp() string {
 	}
 
 	return p.Context().RemoteIP().String()
+}
+
+func (p *Ctx) ContentLen() int {
+	if p.respBody == nil {
+		return 0
+	}
+
+	return len(*p.respBody)
 }

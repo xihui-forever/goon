@@ -3,9 +3,11 @@ package goon
 import (
 	"fmt"
 	"github.com/darabuchi/log"
+	"github.com/darabuchi/utils/unit"
 	"github.com/elliotchance/pie/v2"
 	"github.com/valyala/fasthttp"
 	"runtime/debug"
+	"time"
 )
 
 type Handler func(ctx *Ctx) error
@@ -132,22 +134,56 @@ func (p *App) onError(ctx *Ctx, err error) {
 }
 
 func (p *App) ListenAndServe(addr string) error {
-	return fasthttp.ListenAndServe(addr, func(ctx *fasthttp.RequestCtx) {
-		log.SetTrace(log.GenTraceId())
-		defer log.DelTrace()
+	service := &fasthttp.Server{
+		Handler: func(ctx *fasthttp.RequestCtx) {
+			log.SetTrace(log.GenTraceId())
+			defer log.DelTrace()
 
-		ctx.Response.Header.Set("X-Trace-Id", log.GetTrace())
+			ctx.Response.Header.Set("X-Trace-Id", log.GetTrace())
 
-		ctx.Response.Header.SetStatusCode(fasthttp.StatusOK)
-		err := p.Call(ctx)
-		if err != nil {
-			log.Errorf("err:%v", err)
-			_, e := ctx.Write([]byte(err.Error()))
-			if e != nil {
-				log.Errorf("err:%v", e)
+			ctx.Response.Header.SetStatusCode(fasthttp.StatusOK)
+			err := p.Call(ctx)
+			if err != nil {
+				log.Errorf("err:%v", err)
+				_, e := ctx.Write([]byte(err.Error()))
+				if e != nil {
+					log.Errorf("err:%v", e)
+				}
 			}
-		}
-	})
+		},
+		ErrorHandler:                       nil,
+		HeaderReceived:                     nil,
+		ContinueHandler:                    nil,
+		Concurrency:                        0,
+		ReadBufferSize:                     unit.MB * 10,
+		WriteBufferSize:                    unit.MB * 10,
+		ReadTimeout:                        time.Minute * 5,
+		WriteTimeout:                       time.Minute * 5,
+		IdleTimeout:                        0,
+		MaxConnsPerIP:                      0,
+		MaxRequestsPerConn:                 0,
+		MaxIdleWorkerDuration:              0,
+		TCPKeepalivePeriod:                 0,
+		MaxRequestBodySize:                 unit.MB * 10,
+		TCPKeepalive:                       true,
+		ReduceMemoryUsage:                  false,
+		DisablePreParseMultipartForm:       false,
+		SecureErrorLogMessage:              false,
+		DisableHeaderNamesNormalizing:      false,
+		SleepWhenConcurrencyLimitsExceeded: 0,
+		NoDefaultServerHeader:              false,
+		NoDefaultDate:                      false,
+		NoDefaultContentType:               false,
+		KeepHijackedConns:                  true,
+		CloseOnShutdown:                    true,
+		StreamRequestBody:                  false,
+		ConnState:                          nil,
+		Logger:                             nil,
+		TLSConfig:                          nil,
+		FormValueFunc:                      nil,
+	}
+
+	return service.ListenAndServe(addr)
 }
 
 func Register(method Method, path string, logic interface{}) {

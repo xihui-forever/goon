@@ -2,6 +2,7 @@ package goon
 
 import (
 	"errors"
+	"github.com/darabuchi/log"
 	"strings"
 )
 
@@ -64,7 +65,8 @@ func (t *Trie) Find(method Method, word string) ([]*Logic, error) {
 	for index, code := range word {
 		value, ok := node.children[code]
 		if !ok {
-			return nil, errors.New("path is not unRegistered")
+			log.Warn("path is not have children")
+			goto END
 		}
 		if value.char == "/" {
 			for _, value := range value.itemSet {
