@@ -16,8 +16,9 @@ func (p *Ctx) ParseBody(obj any) error {
 	return sonic.Unmarshal(p.Body(), obj)
 }
 
-func (p *Ctx) Write(res []byte) {
+func (p *Ctx) Write(res []byte) error {
 	p.context.Response.AppendBody(res)
+	return nil
 }
 
 func (p *Ctx) Send(res string) error {
